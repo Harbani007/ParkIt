@@ -26,12 +26,12 @@ Goal: a repo anyone on the team can clone and run in minutes.
 ## Phase 1: Requirements and database design
 Deliverable: project proposal (problem statement, objectives), ER diagram.
 
-- [ ] `docs/requirements.md`: user stories for customer and admin, with acceptance criteria
-- [ ] Pricing rules written down: hourly vs daily rate, rounding, minimum duration
-- [ ] Booking rules: bookable window (opening hours), max advance days, cancellation policy
-- [ ] Review and finalise the schema; new changes go in `002_*.sql`, never edit `001`
-- [ ] ER diagram in `docs/er-diagram.md` (Mermaid)
-- [ ] API contract in `docs/api.md`: every endpoint, request, response, error codes
+- [x] `docs/requirements.md`: user stories for customer and admin, with acceptance criteria
+- [x] Pricing rules written down: hourly vs daily rate, rounding, minimum duration
+- [x] Booking rules: bookable window (opening hours), max advance days, cancellation policy
+- [x] Review and finalise the schema; new changes go in `002_*.sql`, never edit `001`
+- [x] ER diagram in `docs/er-diagram.md` (Mermaid)
+- [x] API contract in `docs/api.md`: every endpoint, request, response, error codes
 
 **Done when:** requirements, pricing rules and API contract are agreed by the team, and the schema
 migrates cleanly on an empty database.
@@ -43,13 +43,16 @@ Deliverable: working implementation (server side).
 
 - [ ] Auth: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`; bcrypt + JWT
 - [ ] Middleware: `requireAuth`, `requireRole('admin')`, zod request validation
-- [ ] Slots: list, availability for a date and time range, price quote
+- [ ] Slots: list, availability with price for a date and time range (D16: no separate quote endpoint)
 - [ ] Bookings: create (simulated payment row), list mine, get one, cancel
 - [ ] Double booking prevented by the DB exclusion constraint; API maps it to 409
 - [ ] QR code generation (`qrcode` package) stored through the storage adapter, local driver
 - [ ] Admin: CRUD slots, set rates and opening hours, block/unblock, list bookings by day
 - [ ] Admin: check-in and check-out by booking code; occupancy and revenue summary
+- [ ] Slot auto-assignment: "any free slot" picks the least-used free slot (D18)
 - [ ] Integration tests against a real Postgres (CI service container)
+- [ ] Early cloud milestone: smoke deploy so `/api/health` answers through CloudFront → EC2 → RDS
+      (proves the AWS path long before the final demo; steps in `docs/architecture.md` §8)
 
 **Done when:** every endpoint in `docs/api.md` is implemented and covered by a test, and CI is green.
 
@@ -75,12 +78,16 @@ all through the UI.
 Deliverable: cloud deployment with demonstration, system architecture diagram.
 
 - [ ] RDS PostgreSQL (free tier, `db.t3.micro` or `db.t4g.micro`), automated backups on, not public
-- [ ] EC2 (free tier) running the API with PM2 behind Nginx; security group allows only 80/443/22
+- [ ] EC2 (free tier) running the API with PM2 behind Nginx; security group allows 80 from CloudFront only and 22 from the team's IP
 - [ ] S3 bucket for the frontend build, served by CloudFront with Origin Access Control
 - [ ] CloudFront second origin: `/api/*` forwarded to EC2, so the whole app is HTTPS on one domain
       (avoids mixed-content errors from an HTTPS page calling an HTTP API)
 - [ ] Private S3 bucket for QR codes and receipts; S3 storage driver with pre-signed URLs;
       EC2 instance role grants access (no access keys on the server)
+- [ ] Secrets in SSM Parameter Store, loaded at start-up (no `.env` on the server)
+- [ ] S3 lifecycle rule expiring QR files of finished bookings
+- [ ] CloudWatch dashboard (EC2 CPU, RDS connections, CloudFront 5xx) and alarms, with screenshots
+      for the report
 - [ ] Optional: SNS topic for booking confirmation notifications
 - [ ] Deploy scripts in `infra/` and a GitHub Actions deploy workflow
 - [ ] Billing alarm set before anything else is created
