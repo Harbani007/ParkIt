@@ -203,7 +203,7 @@ the admin booking list highlights overstays (known limitation, D10).
 
 ### `GET /api/admin/summary` (admin)
 Query: `from`, `to` (IST dates, inclusive, `to ≥ from`, at most 366 days). Definitions in D15.
-`upcoming` = `confirmed` with `starts_at > now`. Occupancy divides by all slots × current opening
+`upcoming` = `confirmed` with `ends_at > now`, so every booking is counted in exactly one state. Occupancy divides by all slots × current opening
 hours and is capped at 100.
 ```json
 {
