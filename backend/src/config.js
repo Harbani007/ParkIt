@@ -25,7 +25,7 @@ export const config = {
   // Reverse proxies in front of the API (production: 2, Nginx + CloudFront). 0 = off.
   trustProxy: intFromEnv(env.TRUST_PROXY, 0),
   authRateLimitMax: intFromEnv(env.AUTH_RATE_LIMIT_MAX, 10, { min: 1 }),
-  awsRegion: env.AWS_REGION ?? 'ap-south-1',
+  awsRegion: env.AWS_REGION ?? 'us-east-1',
   s3AssetsBucket: env.S3_ASSETS_BUCKET ?? '',
   snsTopicArn: env.SNS_TOPIC_ARN ?? '',
 };
