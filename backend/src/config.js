@@ -12,6 +12,11 @@ export const config = {
     .map((o) => o.trim())
     .filter(Boolean),
   storageDriver: env.STORAGE_DRIVER ?? 'local',
+  uploadsDir: env.UPLOADS_DIR ?? './uploads',
+  facilityId: Number(env.FACILITY_ID ?? 1),
+  // Reverse proxies in front of the API (production: 2, Nginx + CloudFront). 0 = off.
+  trustProxy: Number(env.TRUST_PROXY ?? 0),
+  authRateLimitMax: Number(env.AUTH_RATE_LIMIT_MAX ?? 10),
   awsRegion: env.AWS_REGION ?? 'ap-south-1',
   s3AssetsBucket: env.S3_ASSETS_BUCKET ?? '',
   snsTopicArn: env.SNS_TOPIC_ARN ?? '',

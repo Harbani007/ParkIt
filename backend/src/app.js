@@ -14,6 +14,7 @@ import { errorHandler, notFound } from './middleware/errors.js';
 
 export function createApp() {
   const app = express();
+  if (config.trustProxy > 0) app.set('trust proxy', config.trustProxy);
 
   app.use(helmet());
   app.use(cors({ origin: config.corsOrigins }));
