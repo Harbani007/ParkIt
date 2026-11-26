@@ -14,7 +14,8 @@ export function notFound(req, _res, next) {
 
 // eslint-disable-next-line no-unused-vars
 export function errorHandler(rawErr, _req, res, _next) {
-  const err = mapPgError(rawErr);
+  const err =
+    rawErr?.type === 'entity.parse.failed' ? new HttpError(400, 'Invalid JSON body') : mapPgError(rawErr);
   const status = err.status ?? 500;
   if (status >= 500) console.error(err);
   res.status(status).json({

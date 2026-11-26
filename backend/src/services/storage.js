@@ -3,13 +3,14 @@
 //
 // interface Storage {
 //   put(key: string, body: Buffer, contentType: string): Promise<void>
+//   delete(key: string): Promise<void>     // idempotent
 //   getUrl(key: string): Promise<string>   // local: /api/files/<key>, s3: pre-signed URL
 // }
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
 
-const KEY_PATTERN = /^[a-z]+\/[a-f0-9]{32}\.png$/;
+const KEY_PATTERN = /^qr\/[a-f0-9]{32}\.png$/;
 
 export const isValidKey = (key) => typeof key === 'string' && KEY_PATTERN.test(key);
 
@@ -24,6 +25,9 @@ const localStorage = {
     const file = resolveLocal(key);
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, buffer);
+  },
+  async delete(key) {
+    await fs.rm(resolveLocal(key), { force: true });
   },
   async getUrl(key) {
     if (!isValidKey(key)) throw new Error('Invalid storage key');

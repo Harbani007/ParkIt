@@ -101,6 +101,26 @@ describe.skipIf(!dbUp)('GET /api/admin/summary', () => {
     expect(after.by_day[0].bookings - before.by_day[0].bookings).toBe(1);
   });
 
+  it('attributes a 00:30 IST booking (19:00 UTC the previous day) to the IST date', async () => {
+    const day = '2022-07-20';
+    const prev = '2022-07-19';
+    const one = async (d) => (await summary({ from: d, to: d })).body;
+    const [dayBefore, prevBefore, rangeBefore] = [await one(day), await one(prev), (await summary({ from: prev, to: day })).body];
+    const created = await row(day, '00:30', '01:30', 'completed', '10.00');
+    expect(new Date(created.starts_at).toISOString()).toBe('2022-07-19T19:00:00.000Z');
+
+    const range = (await summary({ from: prev, to: day })).body;
+    expect(range.by_day.map((d) => d.date)).toEqual([prev, day]);
+    expect(range.by_day[1].bookings - rangeBefore.by_day[1].bookings).toBe(1);
+    expect(range.by_day[0].bookings - rangeBefore.by_day[0].bookings).toBe(0);
+
+    const [dayAfter, prevAfter] = [await one(day), await one(prev)];
+    expect(dayAfter.counts.completed - dayBefore.counts.completed).toBe(1);
+    expect(prevAfter.counts.completed - prevBefore.counts.completed).toBe(0);
+    expect(Number(dayAfter.revenue) - Number(dayBefore.revenue)).toBeCloseTo(10, 2);
+    expect(Number(prevAfter.revenue) - Number(prevBefore.revenue)).toBeCloseTo(0, 2);
+  });
+
   it('a single day range returns one by_day row', async () => {
     const res = await summary({ from: '2030-01-01', to: '2030-01-01' });
     expect(res.status).toBe(200);

@@ -8,12 +8,14 @@ import { normaliseVehicleNumber } from '../lib/vehicle.js';
 import { generateBookingCode } from '../lib/bookingCode.js';
 import { canCancel, deriveStatus, isOverstayed, isValidBookingCode } from '../lib/bookingState.js';
 import { addDays, istToUtc } from '../lib/time.js';
-import { createQr } from './qr.js';
+import { prepareQr } from './qr.js';
 import { getStorage } from './storage.js';
 
 export const MAX_ACTIVE_BOOKINGS = 3; // D20
 const CODE_ATTEMPTS = 5;
-const DEADLOCK_RETRIES = 3;
+export const DEADLOCK_RETRIES = 3;
+// Namespace for pg_advisory_xact_lock(int, int); the second key is the facility id.
+const FACILITY_LOCK_NS = 7001;
 
 const notFound = () => new HttpError(404, 'Booking not found');
 
@@ -140,31 +142,25 @@ async function withSavepoint(client, name, fn) {
   }
 }
 
-// Inserts the booking, drawing a new code when the unique code clashes (D14).
-async function insertBooking(client, { userId, slotId, vehicleNumber, startsAt, endsAt, amount, generateCode }) {
-  for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
-    const code = generateCode();
-    try {
-      return await withSavepoint(client, 'sp_code', async () => {
-        const { rows } = await client.query(
-          `INSERT INTO bookings (booking_code, user_id, slot_id, vehicle_number, starts_at, ends_at, amount)
-           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, booking_code`,
-          [code, userId, slotId, vehicleNumber, startsAt, endsAt, amount],
-        );
-        return rows[0];
-      });
-    } catch (err) {
-      if (err.code === '23505' && err.constraint === CONSTRAINTS.BOOKING_CODE) continue;
-      throw err;
-    }
-  }
-  throw new HttpError(500, 'Could not generate a unique booking code');
+// Inserts the booking with the pre-drawn code. A code clash surfaces as 23505 on
+// bookings_booking_code_key; createBooking then draws a new code (and QR) and starts over (D14).
+export async function insertBooking(client, { code, userId, slotId, vehicleNumber, startsAt, endsAt, amount }) {
+  const { rows } = await client.query(
+    `INSERT INTO bookings (booking_code, user_id, slot_id, vehicle_number, starts_at, ends_at, amount)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, booking_code`,
+    [code, userId, slotId, vehicleNumber, startsAt, endsAt, amount],
+  );
+  return rows[0];
 }
 
-async function loadExplicitSlot({ facilityId, slotId, vehicleType }) {
-  const { rows } = await pool.query(
+const isCodeClash = (err) => err.code === '23505' && err.constraint === CONSTRAINTS.BOOKING_CODE;
+
+// Re-reads the chosen slot inside the transaction and shares-locks it, so a concurrent admin
+// block / type change / rate change cannot slip in between the checks and the insert (D12, D16).
+async function loadExplicitSlot(client, { facilityId, slotId, vehicleType }) {
+  const { rows } = await client.query(
     `SELECT id, code, vehicle_type, hourly_rate, daily_rate, is_blocked
-       FROM slots WHERE id = $1 AND facility_id = $2`,
+       FROM slots WHERE id = $1 AND facility_id = $2 FOR SHARE`,
     [slotId, facilityId],
   );
   const slot = rows[0];
@@ -177,8 +173,9 @@ async function loadExplicitSlot({ facilityId, slotId, vehicleType }) {
 }
 
 /**
- * Creates the booking, its simulated paid payment and its QR in one transaction.
+ * Creates the booking, its simulated paid payment and its QR.
  * Returns the booking row (joined, see findBookingByCode). Throws HttpError.
+ * `insert` is a test seam for the booking INSERT (default: insertBooking).
  */
 export async function createBooking({
   facility,
@@ -190,87 +187,105 @@ export async function createBooking({
   vehicleNumber,
   now = new Date(),
   generateCode = generateBookingCode,
+  insert = insertBooking,
 }) {
   const window = checkBookingWindow({ startsAt, hours, facility, now });
   const plate = normaliseVehicleNumber(vehicleNumber);
   const explicit = slotId != null;
   if (!explicit && !vehicleType) throw new HttpError(400, 'Choose a slot or a vehicle type');
-  const fixedSlot = explicit ? await loadExplicitSlot({ facilityId: facility.id, slotId, vehicleType }) : null;
 
-  try {
-    return await withTransaction(async (client) => {
-      // D20: lock the customer row so concurrent bookings by one customer queue up and the
-      // count below cannot be raced past the limit.
-      const locked = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
-      if (!locked.rows[0]) throw new HttpError(401, 'Account no longer exists');
-      const active = await client.query(
-        `SELECT count(*)::int AS n FROM bookings
-          WHERE user_id = $1 AND status = 'confirmed' AND ends_at > $2::timestamptz`,
-        [userId, now],
-      );
-      if (active.rows[0].n >= MAX_ACTIVE_BOOKINGS) {
-        throw new HttpError(409, `You already have ${MAX_ACTIVE_BOOKINGS} active bookings`);
-      }
+  // The QR holds the booking code, so the code is drawn first and the PNG is rendered and stored
+  // before the transaction: no storage I/O happens while row or advisory locks are held.
+  // A code clash (D14) discards that QR and starts over with a new code.
+  for (let attempt = 0; attempt < CODE_ATTEMPTS; attempt++) {
+    const code = generateCode();
+    const qrKey = await prepareQr(code);
+    try {
+      return await runCreate({ code, qrKey, facility, userId, slotId, vehicleType, window, hours, plate, now, explicit, insert });
+    } catch (err) {
+      await getStorage().delete(qrKey).catch(() => {}); // best effort; an orphan file is harmless
+      if (isCodeClash(err)) continue;
+      throw mapPgError(err);
+    }
+  }
+  throw new HttpError(500, 'Could not generate a unique booking code');
+}
 
-      // The slot is the explicit one, or the best free candidate; a candidate lost to a
-      // simultaneous request (bookings_no_slot_overlap) is excluded and the next one is tried.
-      // Two simultaneous inserts that conflict can also deadlock inside Postgres (exclusion
-      // constraints insert their index entry before checking), which aborts one statement with 40P01.
-      // That loser is retried; the retry then sees the committed row and fails with the real 23P01.
-      const tried = [];
-      let deadlocks = 0;
-      let inserted;
-      let slot;
-      for (;;) {
-        slot =
-          fixedSlot ??
-          (await pickFreeSlot(client, {
-            facilityId: facility.id,
-            vehicleType,
+function runCreate({ code, qrKey, facility, userId, slotId, vehicleType, window, hours, plate, now, explicit, insert }) {
+  return withTransaction(async (client) => {
+    // Bookings of one facility are serialized for the few ms of this transaction. Concurrent
+    // auto-pick inserts otherwise deadlock inside Postgres (exclusion constraints insert their
+    // index entry before checking). Fine for a single facility; with many facilities the lock is
+    // per facility id, so they would not block each other.
+    await client.query('SELECT pg_advisory_xact_lock($1, $2)', [FACILITY_LOCK_NS, facility.id]);
+
+    // D20: lock the customer row so concurrent bookings by one customer queue up and the
+    // count below cannot be raced past the limit.
+    const locked = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    if (!locked.rows[0]) throw new HttpError(401, 'Account no longer exists');
+    const active = await client.query(
+      `SELECT count(*)::int AS n FROM bookings
+        WHERE user_id = $1 AND status = 'confirmed' AND ends_at > $2::timestamptz`,
+      [userId, now],
+    );
+    if (active.rows[0].n >= MAX_ACTIVE_BOOKINGS) {
+      throw new HttpError(409, `You already have ${MAX_ACTIVE_BOOKINGS} active bookings`);
+    }
+
+    const fixedSlot = explicit ? await loadExplicitSlot(client, { facilityId: facility.id, slotId, vehicleType }) : null;
+
+    // The slot is the explicit one, or the best free candidate. Under the facility lock a
+    // candidate should not be lost to another booking; the 23P01 / 40P01 handling stays as a
+    // backstop (e.g. for bookings inserted by other means). A deadlock loser is retried.
+    const tried = [];
+    let deadlocks = 0;
+    let inserted;
+    for (;;) {
+      const slot =
+        fixedSlot ??
+        (await pickFreeSlot(client, {
+          facilityId: facility.id,
+          vehicleType,
+          startsAt: window.startsAt,
+          endsAt: window.endsAt,
+          excludeIds: tried,
+          now,
+        }));
+      if (!slot) throw new HttpError(409, 'No free slot of that type');
+      try {
+        inserted = await withSavepoint(client, 'sp_slot', () =>
+          insert(client, {
+            code,
+            userId,
+            slotId: slot.id,
+            vehicleNumber: plate,
             startsAt: window.startsAt,
             endsAt: window.endsAt,
-            excludeIds: tried,
-            now,
-          }));
-        if (!slot) throw new HttpError(409, 'No free slot of that type');
-        try {
-          inserted = await withSavepoint(client, 'sp_slot', () =>
-            insertBooking(client, {
-              userId,
-              slotId: slot.id,
-              vehicleNumber: plate,
-              startsAt: window.startsAt,
-              endsAt: window.endsAt,
-              amount: priceFor(hours, slot.hourly_rate, slot.daily_rate),
-              generateCode,
-            }),
-          );
-          break;
-        } catch (err) {
-          if (err.code === '40P01') {
-            if (++deadlocks > DEADLOCK_RETRIES) throw new HttpError(409, 'Slot is busy, please try again');
-            continue;
-          }
-          if (!explicit && err.code === '23P01' && err.constraint === CONSTRAINTS.SLOT_OVERLAP) {
-            tried.push(slot.id);
-            continue;
-          }
-          throw err; // includes bookings_no_vehicle_overlap, never retried
+            amount: priceFor(hours, slot.hourly_rate, slot.daily_rate),
+          }),
+        );
+        break;
+      } catch (err) {
+        if (err.code === '40P01') {
+          if (++deadlocks > DEADLOCK_RETRIES) throw new HttpError(409, 'Slot is busy, please try again');
+          continue;
         }
+        if (!explicit && err.code === '23P01' && err.constraint === CONSTRAINTS.SLOT_OVERLAP) {
+          tried.push(slot.id);
+          continue;
+        }
+        throw err; // includes code clashes and bookings_no_vehicle_overlap, never retried here
       }
+    }
 
-      await client.query(
-        `INSERT INTO payments (booking_id, amount, status, provider)
-         SELECT id, amount, 'paid', 'simulated' FROM bookings WHERE id = $1`,
-        [inserted.id],
-      );
-      const qrKey = await createQr(inserted.booking_code);
-      await client.query('UPDATE bookings SET qr_key = $2 WHERE id = $1', [inserted.id, qrKey]);
-      return findBookingByCode(inserted.booking_code, client);
-    });
-  } catch (err) {
-    throw mapPgError(err);
-  }
+    await client.query(
+      `INSERT INTO payments (booking_id, amount, status, provider)
+       SELECT id, amount, 'paid', 'simulated' FROM bookings WHERE id = $1`,
+      [inserted.id],
+    );
+    await client.query('UPDATE bookings SET qr_key = $2 WHERE id = $1', [inserted.id, qrKey]);
+    return findBookingByCode(inserted.booking_code, client);
+  });
 }
 
 // ---------------------------------------------------------------- state changes

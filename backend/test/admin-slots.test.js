@@ -88,6 +88,33 @@ describe.skipIf(!dbUp)('admin slots', () => {
     expect(res.body).toMatchObject({ id: s.id, hourly_rate: '55.00', daily_rate: '400.00', is_blocked: true, code: s.code });
   });
 
+  it('vehicle_type: 409 while a confirmed or checked_in booking is still running, else allowed', async () => {
+    const patch = (s, body) => request(app).patch(`/api/admin/slots/${s.id}`).set(auth(admin)).send(body);
+    const msg = 'Slot has active bookings; its type cannot change';
+    const base = { userId: customer.user.id };
+    const day = 24 * 3_600_000;
+
+    const confirmed = await createSlot();
+    await insertBookingRow({ ...base, slotId: confirmed.id, startsAt: istIso(5, '10:00'), endsAt: istIso(5, '11:00') });
+    const res = await patch(confirmed, { vehicle_type: 'bike' });
+    expect([res.status, res.body.error]).toEqual([409, msg]);
+    expect((await patch(confirmed, { vehicle_type: 'car' })).status).toBe(200); // unchanged type is fine
+    expect((await patch(confirmed, { hourly_rate: 50 })).status).toBe(200);
+
+    const inUse = await createSlot();
+    await insertBookingRow({
+      ...base, slotId: inUse.id, status: 'checked_in', checkedInAt: new Date(),
+      startsAt: new Date(Date.now() - 3_600_000), endsAt: new Date(Date.now() + 3_600_000),
+    });
+    expect((await patch(inUse, { vehicle_type: 'bike' })).status).toBe(409);
+
+    const idle = await createSlot();
+    await insertBookingRow({ ...base, slotId: idle.id, status: 'cancelled', startsAt: istIso(5, '10:00'), endsAt: istIso(5, '11:00') });
+    await insertBookingRow({ ...base, slotId: idle.id, status: 'completed', startsAt: new Date(Date.now() - 2 * day), endsAt: new Date(Date.now() - 2 * day + 3_600_000) });
+    const ok = await patch(idle, { vehicle_type: 'bike' });
+    expect([ok.status, ok.body.vehicle_type]).toEqual([200, 'bike']);
+  });
+
   it('patch: 400 for empty body or bad id/value, 404 for unknown slot', async () => {
     const s = await createSlot();
     expect((await request(app).patch(`/api/admin/slots/${s.id}`).set(auth(admin)).send({})).status).toBe(400);

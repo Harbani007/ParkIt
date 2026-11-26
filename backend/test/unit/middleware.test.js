@@ -156,3 +156,14 @@ describe('app wiring', () => {
     expect((await request(app).get('/api/admin/whatever').set('Authorization', `Bearer ${admin}`)).status).toBe(404);
   });
 });
+
+describe('JSON body parse errors', () => {
+  it('400 "Invalid JSON body" for malformed JSON, on the real app', async () => {
+    const res = await request(createApp())
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{"email": ');
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid JSON body' });
+  });
+});

@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { pool } from '../src/db/pool.js';
 import { signToken } from '../src/middleware/auth.js';
+import { generateBookingCode } from '../src/lib/bookingCode.js';
 
 export { pool };
 
@@ -99,7 +100,7 @@ export async function insertBookingRow({
   checkedInAt = null,
   checkedOutAt = null,
 }) {
-  const code = bookingCode ?? `PK-${randomBytes(4).toString('hex').toUpperCase().slice(0, 6)}`;
+  const code = bookingCode ?? generateBookingCode();
   const { rows } = await pool.query(
     `INSERT INTO bookings (booking_code, user_id, slot_id, vehicle_number, starts_at, ends_at, amount, status,
                            checked_in_at, checked_out_at)

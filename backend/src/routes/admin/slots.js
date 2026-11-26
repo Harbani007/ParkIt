@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../../db/pool.js';
+import { withTransaction } from '../../db/tx.js';
 import { validate } from '../../middleware/validate.js';
 import { HttpError } from '../../middleware/errors.js';
 import { facilityId } from '../../services/facility.js';
@@ -67,14 +68,34 @@ adminSlotsRouter.patch('/:id', validate({ params: idParams, body: patchBody }), 
     }
   }
   values.push(req.valid.params.id, facilityId());
-  const { rows } = await pool.query(
-    `UPDATE slots SET ${sets.join(', ')}
-      WHERE id = $${values.length - 1} AND facility_id = $${values.length}
-      RETURNING ${COLUMNS}`,
-    values,
-  );
-  if (!rows[0]) throw new HttpError(404, 'Slot not found');
-  res.json(rows[0]);
+  const idParam = values.length - 1;
+  const facilityParam = values.length;
+  const row = await withTransaction(async (client) => {
+    if (b.vehicle_type !== undefined) {
+      // Lock the slot, then refuse a type change while it has live bookings.
+      const slot = await client.query(
+        'SELECT vehicle_type FROM slots WHERE id = $1 AND facility_id = $2 FOR UPDATE',
+        [req.valid.params.id, facilityId()],
+      );
+      if (slot.rows[0] && slot.rows[0].vehicle_type !== b.vehicle_type) {
+        const live = await client.query(
+          `SELECT 1 FROM bookings
+            WHERE slot_id = $1 AND status IN ('confirmed', 'checked_in') AND ends_at > now() LIMIT 1`,
+          [req.valid.params.id],
+        );
+        if (live.rowCount) throw new HttpError(409, 'Slot has active bookings; its type cannot change');
+      }
+    }
+    const { rows } = await client.query(
+      `UPDATE slots SET ${sets.join(', ')}
+        WHERE id = $${idParam} AND facility_id = $${facilityParam}
+        RETURNING ${COLUMNS}`,
+      values,
+    );
+    return rows[0];
+  });
+  if (!row) throw new HttpError(404, 'Slot not found');
+  res.json(row);
 });
 
 // A slot that was ever booked fails with 23503 (bookings_slot_id_fkey), mapped to 409 (D13).

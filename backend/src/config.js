@@ -1,8 +1,16 @@
 const env = process.env;
 
+// Integer from the environment; blank, negative or invalid values fall back to the default.
+export function intFromEnv(value, fallback, { min = 0 } = {}) {
+  const text = String(value ?? '').trim();
+  if (!/^\d+$/.test(text)) return fallback;
+  const n = Number(text);
+  return Number.isSafeInteger(n) && n >= min ? n : fallback;
+}
+
 export const config = {
   env: env.NODE_ENV ?? 'development',
-  port: Number(env.PORT ?? 4000),
+  port: intFromEnv(env.PORT, 4000),
   databaseUrl: env.DATABASE_URL ?? 'postgres://parkit:parkit@localhost:5433/parkit',
   databaseSsl: env.DATABASE_SSL === 'true',
   jwtSecret: env.JWT_SECRET ?? 'dev-only-secret',
@@ -13,10 +21,10 @@ export const config = {
     .filter(Boolean),
   storageDriver: env.STORAGE_DRIVER ?? 'local',
   uploadsDir: env.UPLOADS_DIR ?? './uploads',
-  facilityId: Number(env.FACILITY_ID ?? 1),
+  facilityId: intFromEnv(env.FACILITY_ID, 1, { min: 1 }),
   // Reverse proxies in front of the API (production: 2, Nginx + CloudFront). 0 = off.
-  trustProxy: Number(env.TRUST_PROXY ?? 0),
-  authRateLimitMax: Number(env.AUTH_RATE_LIMIT_MAX ?? 10),
+  trustProxy: intFromEnv(env.TRUST_PROXY, 0),
+  authRateLimitMax: intFromEnv(env.AUTH_RATE_LIMIT_MAX, 10, { min: 1 }),
   awsRegion: env.AWS_REGION ?? 'ap-south-1',
   s3AssetsBucket: env.S3_ASSETS_BUCKET ?? '',
   snsTopicArn: env.SNS_TOPIC_ARN ?? '',

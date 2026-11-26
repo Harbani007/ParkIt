@@ -11,6 +11,8 @@ import {
   checkInBooking,
   checkOutBooking,
   createBooking,
+  DEADLOCK_RETRIES,
+  insertBooking as realInsert,
   findBookingByCode,
   pickFreeSlot,
 } from '../src/services/bookings.js';
@@ -45,6 +47,7 @@ describe.skipIf(!dbUp)('booking service', () => {
       vehicleNumber: plate(),
       ...extra,
     });
+  const qrCount = () => (fs.existsSync(path.join(tmp, 'qr')) ? fs.readdirSync(path.join(tmp, 'qr')).length : 0);
   const count = async (facility) =>
     Number(
       (
@@ -208,9 +211,53 @@ describe.skipIf(!dbUp)('booking service', () => {
       const f = await newFacility();
       for (const code of ['H1', 'H2', 'H3']) await slotIn(f, code);
       const users = [await createUser(), await createUser(), await createUser()];
-      const rows = await Promise.all(users.map((u) => book(f, u)));
-      expect(new Set(rows.map((r) => r.slot_id)).size).toBe(3);
+      // allSettled: never leave a transaction running into afterAll cleanup, even on failure
+      const results = await Promise.allSettled(users.map((u) => book(f, u)));
+      expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled', 'fulfilled']);
+      expect(new Set(results.map((r) => r.value.slot_id)).size).toBe(3);
       expect(await count(f)).toBe(3);
+    });
+
+    it('retries a 40P01 deadlock and then succeeds', async () => {
+      const f = await newFacility();
+      const u = await createUser();
+      await slotIn(f, 'N1');
+      let calls = 0;
+      const insert = (client, args) => {
+        if (++calls <= 2) throw Object.assign(new Error('deadlock detected'), { code: '40P01' });
+        return realInsert(client, args);
+      };
+      const row = await book(f, u, { insert });
+      expect(row.status).toBe('confirmed');
+      expect(calls).toBe(3);
+      expect(await count(f)).toBe(1);
+    });
+
+    it('gives up after DEADLOCK_RETRIES deadlocks with 409 "Slot is busy, please try again"', async () => {
+      const f = await newFacility();
+      const u = await createUser();
+      await slotIn(f, 'N2');
+      const qrBefore = qrCount();
+      let calls = 0;
+      const insert = () => {
+        calls++;
+        throw Object.assign(new Error('deadlock detected'), { code: '40P01' });
+      };
+      const err = await book(f, u, { insert }).catch((e) => e);
+      expect([err.status, err.message]).toEqual([409, 'Slot is busy, please try again']);
+      expect(calls).toBe(DEADLOCK_RETRIES + 1);
+      expect(await count(f)).toBe(0);
+      expect(qrCount()).toBe(qrBefore);
+    });
+
+    it('deletes the stored QR when the transaction fails', async () => {
+      const f = await newFacility();
+      const u = await createUser();
+      await slotIn(f, 'N3');
+      const before = qrCount();
+      const err = await book(f, u, { insert: () => { throw new Error('boom'); } }).catch((e) => e);
+      expect(err.message).toBe('boom');
+      expect(qrCount()).toBe(before);
     });
 
     it('the same vehicle overlapping gets the vehicle 409 and is not retried on another slot', async () => {

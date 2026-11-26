@@ -42,10 +42,21 @@ describe('storage and QR', () => {
   });
 
   it('resolveLocal rejects keys outside qr/<32 hex>.png', () => {
-    for (const bad of ['../x', 'qr/abc.png', 'qr/../../package.json', '/etc/passwd', `qr/${'a'.repeat(32)}.txt`, `QR/${'a'.repeat(32)}.png`]) {
+    for (const bad of ['../x', 'qr/abc.png', 'qr/../../package.json', '/etc/passwd', `qr/${'a'.repeat(32)}.txt`, `QR/${'a'.repeat(32)}.png`, `receipts/${'a'.repeat(32)}.png`, `x/${'a'.repeat(32)}.png`]) {
       expect(() => resolveLocal(bad)).toThrow();
     }
     expect(resolveLocal(`qr/${'a'.repeat(32)}.png`).startsWith(path.resolve(tmp))).toBe(true);
+  });
+});
+
+describe('local storage delete', () => {
+  it('removes a stored object and is idempotent', async () => {
+    const key = await createQr('PK-7KQ2XM');
+    expect(fs.existsSync(resolveLocal(key))).toBe(true);
+    await getStorage().delete(key);
+    expect(fs.existsSync(resolveLocal(key))).toBe(false);
+    await getStorage().delete(key);
+    await expect(getStorage().delete('../x')).rejects.toThrow();
   });
 });
 
