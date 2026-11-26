@@ -61,13 +61,13 @@ Deliverable: working implementation (server side).
 ## Phase 3: Customer and admin frontend
 Deliverable: working implementation (client side).
 
-- [ ] Auth pages, token storage, protected routes, role-based nav
-- [ ] Booking flow: pick date and duration, see free slots and price, confirm, show QR
-- [ ] My bookings: active and past, cancel
-- [ ] Admin dashboard: today's and upcoming bookings, occupancy and revenue cards
-- [ ] Admin slot management: create/edit, rates, block/unblock, opening hours
-- [ ] Admin check-in/check-out by booking code (typed, or scanned QR as a stretch goal)
-- [ ] Works at phone width
+- [x] Auth pages, token storage, protected routes, role-based nav
+- [x] Booking flow: pick date and duration, see free slots and price, confirm, show QR
+- [x] My bookings: active and past, cancel
+- [x] Admin dashboard: today's and upcoming bookings, occupancy and revenue cards
+- [x] Admin slot management: create/edit, rates, block/unblock, opening hours
+- [x] Admin check-in/check-out by booking code (typed; scanning the QR with a camera is a stretch goal)
+- [ ] Works at phone width (built responsive; still to check every page at 360 px in a browser)
 
 **Done when:** a customer can book end to end and an admin can check that booking in and out,
 all through the UI.
@@ -77,6 +77,21 @@ all through the UI.
 ## Phase 4: AWS deployment
 Deliverable: cloud deployment with demonstration, system architecture diagram.
 
+The project is demonstrated in the **AWS Academy Cloud Foundations Sandbox** (us-east-1, wiped
+after every 3-hour session, no IAM role creation). So the demo deployment is one CloudFormation
+template that rebuilds everything in about 15 minutes. The fuller production design below stays
+documented in `docs/architecture.md` as the next step.
+
+### Sandbox deployment (what we demo)
+- [x] S3 storage driver for QR images with pre-signed URLs; credentials from the EC2 instance role
+- [x] CloudFormation template `infra/parkit-sandbox.yaml`: security groups, RDS PostgreSQL (private,
+      single-AZ, backups on), private encrypted S3 bucket, EC2 with `LabInstanceProfile` that installs
+      and starts the app (Nginx + Node.js under systemd) and signals CloudFormation when healthy
+- [x] Beginner guide `infra/SANDBOX-DEPLOY.md` and viva notes `docs/viva-notes.md`
+- [ ] Stack created in the sandbox and a booking made through the website URL (needs a human run)
+- [ ] Screenshots for the report: stack resources and outputs, EC2, RDS, S3 object, website
+
+### Production design (documented, not deployed in the sandbox)
 - [ ] RDS PostgreSQL (free tier, `db.t3.micro` or `db.t4g.micro`), automated backups on, not public
 - [ ] EC2 (free tier) running the API with PM2 behind Nginx; security group allows 80 from CloudFront only and 22 from the team's IP
 - [ ] S3 bucket for the frontend build, served by CloudFront with Origin Access Control

@@ -1,5 +1,49 @@
 # Architecture
 
+## What is deployed (AWS Academy sandbox)
+
+The demo runs in the AWS Academy Cloud Foundations Sandbox (region us-east-1). The sandbox deletes
+everything after each 3-hour session, so one CloudFormation template (`infra/parkit-sandbox.yaml`)
+builds the whole system in about 15 minutes. Guide: `infra/SANDBOX-DEPLOY.md`.
+
+```mermaid
+flowchart LR
+  U[Browser: customer or admin] -- "HTTP :80" --> EC2
+
+  subgraph AWS["AWS us-east-1 (CloudFormation stack 'parkit')"]
+    subgraph SGW["Security group: web (port 80 open)"]
+      EC2["EC2 t3.micro<br/>Nginx: React site + /api proxy<br/>Node.js API (systemd)"]
+    end
+    subgraph SGD["Security group: db (5432 from web SG only)"]
+      RDS[("RDS PostgreSQL<br/>private, single-AZ, backups")]
+    end
+    S3[("S3 bucket<br/>QR images, private, encrypted")]
+    ROLE["IAM: LabInstanceProfile (LabRole)<br/>no access keys"]
+  end
+
+  EC2 -- "SQL over TLS" --> RDS
+  EC2 -- "PutObject / pre-signed GET" --> S3
+  ROLE -. "temporary credentials" .- EC2
+  U -. "QR image via pre-signed URL" .-> S3
+```
+
+| Need | Sandbox service | Why |
+|---|---|---|
+| Run the website and API | EC2 (IaaS) | One virtual server: Nginx serves the React build and proxies `/api` to Node.js |
+| Store relational data | RDS PostgreSQL (managed) | Backups and patching by AWS; exclusion constraints prevent double booking |
+| Store QR images | S3 (private) | Durable object storage, shared through 15-minute pre-signed links |
+| Create it all repeatably | CloudFormation (IaC) | The sandbox is wiped every session; one template rebuilds it identically |
+| Permissions without keys | IAM role via `LabInstanceProfile` | The AWS SDK gets temporary credentials from the instance |
+
+Known limitations of the sandbox demo: HTTP only (no domain or certificate), one EC2 instance and a
+single-AZ database (the sandbox does not allow Multi-AZ).
+
+## Production design (next step)
+
+The design below is the fuller target: CloudFront with HTTPS in front, the website on S3, secrets in
+SSM Parameter Store, CloudWatch alarms, budget alerts and SNS.
+
+
 ```mermaid
 flowchart TB
   C[Customer] --> W
