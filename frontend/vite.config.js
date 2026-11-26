@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  test: { environment: 'jsdom' },
+  test: { environment: 'jsdom', setupFiles: ['./src/test/setup.js'] },
   server: {
     port: 5173,
     // Same-origin /api in dev, mirroring the CloudFront setup in production.
