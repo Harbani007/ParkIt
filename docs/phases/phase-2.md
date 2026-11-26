@@ -72,7 +72,7 @@ the change goes into `docs/api.md` first (CLAUDE.md rule), as a separate `docs` 
 - **A7 D15 summary.** Occupancy denominator uses **all** slots of the facility and the current
   opening hours; the percentage is capped at 100. `by_day` has one row per date in the range (zero rows included, via
   `generate_series`); `bookings` there = non-cancelled bookings starting that day. Counts:
-  `upcoming` = `confirmed` and `ends_at >= now`; `missed` = `confirmed` and `ends_at < now`.
+  `upcoming` = `confirmed` and `ends_at > now`; `missed` = `confirmed` and `ends_at <= now` (D11, D15).
 - **A8 Lists.** `mine?scope=active` = `confirmed` with `ends_at > now` plus every `checked_in`
   booking (even past `ends_at`), ordered by `starts_at` ascending; `past` by `starts_at`
   descending. Booking codes in URLs are uppercased; anything not matching
