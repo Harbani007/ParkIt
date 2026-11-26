@@ -85,6 +85,8 @@ Deliverable: cloud deployment with demonstration, system architecture diagram.
 - [ ] Private S3 bucket for QR codes and receipts; S3 storage driver with pre-signed URLs;
       EC2 instance role grants access (no access keys on the server)
 - [ ] Secrets in SSM Parameter Store, loaded at start-up (no `.env` on the server)
+- [ ] Verified TLS to RDS: `pool.js` uses the AWS RDS CA bundle (`global-bundle.pem`) instead of
+      `rejectUnauthorized: false`
 - [ ] S3 lifecycle rule expiring QR files of finished bookings
 - [ ] CloudWatch dashboard (EC2 CPU, RDS connections, CloudFront 5xx) and alarms, with screenshots
       for the report
