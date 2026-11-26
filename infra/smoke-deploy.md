@@ -128,6 +128,7 @@ For `ADMIN_PASSWORD` choose a strong passphrase of at least 12 characters. It mu
 | `/parkit/prod/PORT` | String | `4000` |
 | `/parkit/prod/ADMIN_EMAIL` | String | `admin@parkit.local` |
 | `/parkit/prod/JWT_EXPIRES_IN` | String | `7d` |
+| `/parkit/prod/TRUST_PROXY` | String | `2` (Nginx + CloudFront: the API then sees the real client IP, so the login rate limit is per user, not shared) |
 | `/parkit/prod/CORS_ORIGINS` | String | `http://localhost:5173` (update to `https://<DIST_DOMAIN>` in Phase 4) |
 
 Notes:
@@ -513,9 +514,9 @@ Order matters because of dependencies. Keep the budget and the admin user.
 - The pool in `backend/src/db/pool.js` uses `ssl: { rejectUnauthorized: false }` when
   `DATABASE_SSL=true`: the traffic is encrypted but the RDS certificate is **not verified**, unlike
   architecture section 1 (verify with `global-bundle.pem`). Fine for this smoke test; fix in Phase 4.
-- The API does not set `trust proxy`, so behind Nginx every client appears as `127.0.0.1`. The planned
-  per-IP login/register limit (10/minute, D20) would then be shared by all users. Harmless for this
-  test; needs `app.set('trust proxy', ...)` before real use.
+- `TRUST_PROXY=2` (table above) is required: without it every client appears as `127.0.0.1` behind
+  Nginx, and the per-IP login/register limit (10/minute, D20) would be shared by all users. Nginx must
+  pass `X-Forwarded-For` with `$proxy_add_x_forwarded_for` (it does in the server block above).
 - Amazon Linux 2023 package names for Node 22 and the exact layout of its default `nginx.conf` were
   not checked.
 - Whether the free-tier RDS template and the CloudFront pricing plans accept every setting above
