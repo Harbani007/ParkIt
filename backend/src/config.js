@@ -17,6 +17,10 @@ export const config = {
   snsTopicArn: env.SNS_TOPIC_ARN ?? '',
 };
 
-if (config.env === 'production' && config.jwtSecret === 'dev-only-secret') {
-  throw new Error('JWT_SECRET must be set in production');
+// Only development and test may run on the built-in secret. Anything else (production, or a
+// NODE_ENV that was never set on a server) must provide JWT_SECRET, so a failed secrets load can
+// never silently start the API with a guessable signing key.
+const devEnvs = ['development', 'test'];
+if (!env.JWT_SECRET && !devEnvs.includes(env.NODE_ENV)) {
+  throw new Error('JWT_SECRET must be set unless NODE_ENV is development or test');
 }

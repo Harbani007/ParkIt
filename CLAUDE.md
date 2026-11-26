@@ -7,7 +7,9 @@ sees occupancy and revenue. Payment is simulated.
 ## Source of truth
 - `docs/PHASES.md`: phase plan and checklist. Read it before starting work; tick items as they land.
 - `docs/api.md` (from Phase 1): API contract. Backend and frontend both follow it; change it first.
-- `docs/architecture.md`: AWS architecture.
+- `docs/requirements.md` (from Phase 1): user stories and business rules D1-D19. Change it before the API or schema.
+- `docs/er-diagram.md`: database schema as built by the migrations.
+- `docs/architecture.md`: AWS architecture and cloud specification (security, IAM, cost, deployment, demo).
 
 ## Stack
 - `backend/`: Node.js 20+, Express 5, ESM, `pg` (no ORM), zod, bcryptjs, jsonwebtoken, vitest + supertest
