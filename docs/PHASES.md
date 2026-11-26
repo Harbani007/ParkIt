@@ -1,0 +1,102 @@
+# ParkIt phase plan
+
+Each phase ends with a working, committed state on its own branch (`phase-N/<slug>`) merged into
+`main`. The `/run-phase` skill in `.claude/skills/` drives a phase through the agent pipeline; this
+file is the single source of truth for what is done. Tick boxes as work lands.
+
+---
+
+## Phase 0: Scaffold
+Goal: a repo anyone on the team can clone and run in minutes.
+
+- [x] Monorepo layout: `backend/`, `frontend/`, `infra/`, `docs/`
+- [x] Express API with `/api/health`, error handling, config from env
+- [x] Migration runner and draft schema (`backend/migrations/001_initial_schema.sql`)
+- [x] Seed script (one facility, four slots, dev admin)
+- [x] React + Vite shell with routes and API client, dev proxy to `/api`
+- [x] Local Postgres via `docker compose`
+- [x] CI: backend tests and frontend build on every push
+- [x] Agent pipeline: subagents in `.claude/agents/`, `/run-phase` skill
+
+**Done when:** `docker compose up -d db`, `npm run migrate`, `npm run dev` in both apps shows
+"API: ok (database up)" on the home page.
+
+---
+
+## Phase 1: Requirements and database design
+Deliverable: project proposal (problem statement, objectives), ER diagram.
+
+- [ ] `docs/requirements.md`: user stories for customer and admin, with acceptance criteria
+- [ ] Pricing rules written down: hourly vs daily rate, rounding, minimum duration
+- [ ] Booking rules: bookable window (opening hours), max advance days, cancellation policy
+- [ ] Review and finalise the schema; new changes go in `002_*.sql`, never edit `001`
+- [ ] ER diagram in `docs/er-diagram.md` (Mermaid)
+- [ ] API contract in `docs/api.md`: every endpoint, request, response, error codes
+
+**Done when:** requirements, pricing rules and API contract are agreed by the team, and the schema
+migrates cleanly on an empty database.
+
+---
+
+## Phase 2: Backend API with JWT authentication
+Deliverable: working implementation (server side).
+
+- [ ] Auth: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`; bcrypt + JWT
+- [ ] Middleware: `requireAuth`, `requireRole('admin')`, zod request validation
+- [ ] Slots: list, availability for a date and time range, price quote
+- [ ] Bookings: create (simulated payment row), list mine, get one, cancel
+- [ ] Double booking prevented by the DB exclusion constraint; API maps it to 409
+- [ ] QR code generation (`qrcode` package) stored through the storage adapter, local driver
+- [ ] Admin: CRUD slots, set rates and opening hours, block/unblock, list bookings by day
+- [ ] Admin: check-in and check-out by booking code; occupancy and revenue summary
+- [ ] Integration tests against a real Postgres (CI service container)
+
+**Done when:** every endpoint in `docs/api.md` is implemented and covered by a test, and CI is green.
+
+---
+
+## Phase 3: Customer and admin frontend
+Deliverable: working implementation (client side).
+
+- [ ] Auth pages, token storage, protected routes, role-based nav
+- [ ] Booking flow: pick date and duration, see free slots and price, confirm, show QR
+- [ ] My bookings: active and past, cancel
+- [ ] Admin dashboard: today's and upcoming bookings, occupancy and revenue cards
+- [ ] Admin slot management: create/edit, rates, block/unblock, opening hours
+- [ ] Admin check-in/check-out by booking code (typed, or scanned QR as a stretch goal)
+- [ ] Works at phone width
+
+**Done when:** a customer can book end to end and an admin can check that booking in and out,
+all through the UI.
+
+---
+
+## Phase 4: AWS deployment
+Deliverable: cloud deployment with demonstration, system architecture diagram.
+
+- [ ] RDS PostgreSQL (free tier, `db.t3.micro` or `db.t4g.micro`), automated backups on, not public
+- [ ] EC2 (free tier) running the API with PM2 behind Nginx; security group allows only 80/443/22
+- [ ] S3 bucket for the frontend build, served by CloudFront with Origin Access Control
+- [ ] CloudFront second origin: `/api/*` forwarded to EC2, so the whole app is HTTPS on one domain
+      (avoids mixed-content errors from an HTTPS page calling an HTTP API)
+- [ ] Private S3 bucket for QR codes and receipts; S3 storage driver with pre-signed URLs;
+      EC2 instance role grants access (no access keys on the server)
+- [ ] Optional: SNS topic for booking confirmation notifications
+- [ ] Deploy scripts in `infra/` and a GitHub Actions deploy workflow
+- [ ] Billing alarm set before anything else is created
+- [ ] Final architecture diagram in `docs/architecture.md`
+
+**Done when:** the CloudFront URL serves the app and a booking made there is stored in RDS with
+its QR code in S3.
+
+---
+
+## Phase 5: Testing, report and presentation
+Deliverables: project report (max 5 pages), final presentation and live demo.
+
+- [ ] Manual test pass of every user story on the deployed app; fix what breaks
+- [ ] Seed realistic demo data on AWS
+- [ ] Report (max 5 pages): problem, objectives, architecture, cloud services and why, results,
+      screenshots, future scope
+- [ ] Slide deck and a rehearsed demo script with a fallback recording
+- [ ] README final pass: live URL, screenshots, team table

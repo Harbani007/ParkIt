@@ -1,0 +1,29 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm test)",
+      "Bash(npm install)",
+      "Bash(npm ci)",
+      "Bash(docker compose *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "PowerShell(npm run *)",
+      "PowerShell(npm test)",
+      "PowerShell(npm install)",
+      "PowerShell(docker compose *)"
+    ],
+    "deny": [
+      "Bash(aws *)",
+      "PowerShell(aws *)",
+      "Read(./backend/.env)",
+      "Read(./frontend/.env)"
+    ]
+  }
+}
