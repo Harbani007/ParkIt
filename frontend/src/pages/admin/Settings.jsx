@@ -131,7 +131,7 @@ export default function Settings() {
       ) : null}
 
       {form ? (
-        <form className="card stack" onSubmit={submit} noValidate style={{ maxWidth: '40rem' }}>
+        <form className="card stack form-narrow" onSubmit={submit} noValidate>
           <Field label="Facility name" required value={form.name} maxLength={100} autoComplete="off"
             error={err('name')} onChange={(e) => set('name', e.target.value)} />
           <Field label="Address" value={form.address} autoComplete="off"
@@ -151,7 +151,7 @@ export default function Settings() {
 
           <div className="field">
             <span className="label">Timezone</span>
-            <p style={{ margin: 0 }}>Asia/Kolkata (IST)</p>
+            <p className="m-0">Asia/Kolkata (IST)</p>
             <p className="field-hint">Fixed for this facility.</p>
           </div>
 

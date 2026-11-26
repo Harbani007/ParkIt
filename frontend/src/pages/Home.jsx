@@ -9,8 +9,6 @@ const STEPS = [
   ['3', 'Check in', 'Show the code at the gate. Staff check you in and out.'],
 ];
 
-const dd = { margin: '0 0 var(--space-3)' };
-
 export default function Home() {
   const { role } = useAuth();
   const [facility, setFacility] = useState(null);
@@ -35,7 +33,7 @@ export default function Home() {
 
   return (
     <div className="stack stack-lg">
-      <section className="stack">
+      <section className="hero">
         <h1>Park in a private facility, booked ahead.</h1>
         <p>
           ParkIt lets you reserve a car or bike slot in advance. Check availability, see the
@@ -59,23 +57,15 @@ export default function Home() {
           </div>
         ) : !facility ? (
           <div role="status">
-            <span className="skeleton" style={{ display: 'block', height: '1.25rem', width: '60%' }} />
+            <span className="skeleton skeleton-line" />
             <span className="visually-hidden">Loading facility details</span>
           </div>
         ) : (
-          <dl style={{ margin: 0 }}>
-            <dt className="muted">Name</dt>
-            <dd style={dd}>{facility.name}</dd>
-            {facility.address && (
-              <>
-                <dt className="muted">Address</dt>
-                <dd style={dd}>{facility.address}</dd>
-              </>
-            )}
-            <dt className="muted">Open daily</dt>
-            <dd style={dd}>{facility.opens_at} to {facility.closes_at} IST</dd>
-            <dt className="muted">Book up to</dt>
-            <dd style={{ margin: 0 }}>{facility.max_advance_days} days ahead</dd>
+          <dl className="dl">
+            <div><dt>Name</dt><dd>{facility.name}</dd></div>
+            {facility.address && <div><dt>Address</dt><dd>{facility.address}</dd></div>}
+            <div><dt>Open daily</dt><dd>{facility.opens_at} to {facility.closes_at} IST</dd></div>
+            <div><dt>Book up to</dt><dd>{facility.max_advance_days} days ahead</dd></div>
           </dl>
         )}
         <p className="muted">Hourly and daily rates are shown per slot when you choose a time.</p>
@@ -83,11 +73,11 @@ export default function Home() {
 
       <section aria-labelledby="how-heading">
         <h2 id="how-heading">How it works</h2>
-        <ol className="grid" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+        <ol className="steps">
           {STEPS.map(([n, title, text]) => (
-            <li key={n} className="card">
-              <h3>{n}. {title}</h3>
-              <p className="muted">{text}</p>
+            <li key={n}>
+              <h3>{title}</h3>
+              <p>{text}</p>
             </li>
           ))}
         </ol>

@@ -12,13 +12,11 @@ import StatusBadge from '../components/StatusBadge.jsx';
 import { formatINR } from '../lib/money.js';
 import { formatDateTime, formatTimeRange } from '../lib/time.js';
 
-const dd = { margin: 0 };
-
 function Item({ label, children }) {
   return (
     <div>
-      <dt className="muted">{label}</dt>
-      <dd style={dd}>{children}</dd>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
     </div>
   );
 }
@@ -135,8 +133,8 @@ export default function BookingDetail() {
     return (
       <div className="stack" aria-busy="true">
         <Spinner label="Loading booking" />
-        <span className="skeleton" style={{ display: 'block', height: '4rem', maxWidth: '16rem' }} />
-        <span className="skeleton" style={{ display: 'block', height: '12rem' }} />
+        <span className="skeleton skeleton-title" />
+        <span className="skeleton skeleton-block" />
       </div>
     );
   }
@@ -220,7 +218,7 @@ export default function BookingDetail() {
 
       <section className="card stack" aria-labelledby="details-heading">
         <h2 id="details-heading">Details</h2>
-        <dl className="stack" style={{ margin: 0, gap: 'var(--space-3)' }}>
+        <dl className="dl">
           <Item label="When">{formatTimeRange(b.starts_at, b.ends_at)}</Item>
           <Item label="Duration">{b.hours} {b.hours === 1 ? 'hour' : 'hours'}</Item>
           <Item label="Slot">{b.slot ? `${b.slot.code} (${b.slot.vehicle_type})` : '—'}</Item>
@@ -246,10 +244,10 @@ export default function BookingDetail() {
         ) : null}
       </section>
 
-      {isAdmin && customer ? (
+      {customer ? (
         <section className="card stack" aria-labelledby="customer-heading">
           <h2 id="customer-heading">Customer</h2>
-          <dl className="stack" style={{ margin: 0, gap: 'var(--space-3)' }}>
+          <dl className="dl">
             <Item label="Name">{customer.name}</Item>
             {customer.email ? <Item label="Email">{customer.email}</Item> : null}
             {customer.phone ? <Item label="Phone">{customer.phone}</Item> : null}

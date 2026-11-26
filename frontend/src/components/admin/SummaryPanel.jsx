@@ -38,7 +38,8 @@ function clampPct(n) {
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 0;
 }
 
-export default function SummaryPanel() {
+// `refreshKey`: change it to re-fetch the current range (e.g. after a cancellation).
+export default function SummaryPanel({ refreshKey = 0 }) {
   const [preset, setPreset] = useState('today');
   const [range, setRange] = useState(() => presetRange('today'));
   const [draft, setDraft] = useState(() => presetRange('today'));
@@ -62,7 +63,7 @@ export default function SummaryPanel() {
         setLoading(false);
       });
     return () => ctrl.abort();
-  }, [range, reload]);
+  }, [range, reload, refreshKey]);
 
   function choosePreset(p) {
     const r = presetRange(p);
@@ -81,7 +82,7 @@ export default function SummaryPanel() {
   return (
     <section className="card stack" aria-labelledby="summary-heading" aria-busy={loading}>
       <div className="row row-between">
-        <h2 id="summary-heading" style={{ margin: 0 }}>Summary</h2>
+        <h2 id="summary-heading" className="m-0">Summary</h2>
         <div className="segmented" role="group" aria-label="Date range presets">
           {PRESETS.map(([key, label]) => (
             <button key={key} type="button" aria-pressed={preset === key} onClick={() => choosePreset(key)}>
@@ -91,7 +92,7 @@ export default function SummaryPanel() {
         </div>
       </div>
 
-      <form className="field-row" onSubmit={applyCustom} noValidate style={{ alignItems: 'end' }}>
+      <form className="field-row align-end" onSubmit={applyCustom} noValidate>
         <Field label="From" type="date" value={draft.from} max={draft.to || undefined}
           onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))} />
         <Field label="To" type="date" value={draft.to} min={draft.from || undefined} error={rangeError}
@@ -103,7 +104,7 @@ export default function SummaryPanel() {
         </div>
       </form>
 
-      <p className="muted" style={{ margin: 0 }}>
+      <p className="muted m-0">
         Showing {formatDate(range.from)}{range.to !== range.from ? ` to ${formatDate(range.to)}` : ''}.
       </p>
 
@@ -116,7 +117,7 @@ export default function SummaryPanel() {
       ) : null}
 
       {data && !error ? (
-        <div className="stack" style={loading ? { opacity: 0.6 } : undefined}>
+        <div className={`stack${loading ? ' is-loading' : ''}`}>
           <div className="grid">
             <div className="stat-card">
               <p className="stat-label">Revenue</p>
@@ -133,7 +134,7 @@ export default function SummaryPanel() {
             </div>
           </div>
 
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 8rem), 1fr))' }}>
+          <div className="grid grid-compact">
             {COUNT_CARDS.map(([key, label]) => (
               <div className="stat-card" key={key}>
                 <p className="stat-label">{label}</p>
@@ -163,11 +164,11 @@ export default function SummaryPanel() {
                         <td data-label="Bookings" className="num">{d.bookings}</td>
                         <td data-label="Revenue" className="num">{formatINR(d.revenue)}</td>
                         <td data-label="Occupancy">
-                          <span className="row" style={{ flexWrap: 'nowrap' }}>
+                          <span className="bar-cell">
                             <span className="bar" role="img" aria-label={`Occupancy ${pct(d.occupancy_pct)}`}>
                               <span style={{ '--bar-value': clampPct(d.occupancy_pct) }} />
                             </span>
-                            <span style={{ minWidth: '3.5rem', textAlign: 'right' }}>{pct(d.occupancy_pct)}</span>
+                            <span className="bar-pct">{pct(d.occupancy_pct)}</span>
                           </span>
                         </td>
                       </tr>

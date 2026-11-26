@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
+  const [summaryKey, setSummaryKey] = useState(0);
   const [toCancel, setToCancel] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -57,6 +58,7 @@ export default function Dashboard() {
       setNotice({ tone: 'success', text: `Booking ${toCancel.booking_code} cancelled and refunded (simulated).` });
       setToCancel(null);
       setReload((n) => n + 1);
+      setSummaryKey((n) => n + 1);
     } catch (e) {
       setNotice({ tone: 'danger', text: e.message || 'Could not cancel the booking.' });
       setToCancel(null);
@@ -81,12 +83,12 @@ export default function Dashboard() {
         }
       />
 
-      <SummaryPanel />
+      <SummaryPanel refreshKey={summaryKey} />
 
       <section className="card stack" aria-labelledby="bookings-heading" aria-busy={loading}>
-        <h2 id="bookings-heading" style={{ margin: 0 }}>Bookings on {formatDate(date)}</h2>
+        <h2 id="bookings-heading" className="m-0">Bookings on {formatDate(date)}</h2>
 
-        <div className="row" style={{ alignItems: 'end' }}>
+        <div className="row align-end">
           <button type="button" className="btn btn-secondary" onClick={() => setDate(addDaysIST(date, -1))}
             aria-label="Previous day">&larr; Prev</button>
           <Field label="Day" type="date" value={date}
@@ -119,7 +121,7 @@ export default function Dashboard() {
         ) : null}
 
         {!error && rows.length > 0 ? (
-          <div className="table-wrap" style={loading ? { opacity: 0.6 } : undefined}>
+          <div className={`table-wrap${loading ? ' is-loading' : ''}`}>
             <table className="table">
               <caption className="visually-hidden">Bookings starting on {formatDate(date)}</caption>
               <thead>

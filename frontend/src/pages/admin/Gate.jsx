@@ -11,15 +11,6 @@ import { formatDateTime } from '../../lib/time.js';
 
 const isAbort = (e) => e?.name === 'AbortError';
 
-const bigInput = {
-  fontSize: '1.5rem',
-  minHeight: '3.5rem',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  textAlign: 'center',
-};
-const bigButton = { minHeight: '3.5rem', fontSize: '1.125rem' };
-
 const NOTHING_TO_DO = {
   completed: 'This booking is already completed. The car has been checked out.',
   cancelled: 'This booking was cancelled, so nobody can be checked in.',
@@ -101,6 +92,14 @@ export default function Gate() {
         tone: err.status === 409 ? 'warning' : 'danger',
         text: err.message || 'The action failed.',
       });
+      if (err.status === 409) {
+        // State changed under us (e.g. already checked in): show the booking's true state.
+        try {
+          setBooking(await getBooking(booking.booking_code));
+        } catch {
+          /* keep what is on screen; the warning above still explains the conflict */
+        }
+      }
     } finally {
       setActing(false);
     }
@@ -118,8 +117,7 @@ export default function Gate() {
           <input
             id="gate-code"
             ref={inputRef}
-            className="input"
-            style={bigInput}
+            className="input input-lg"
             value={code}
             onChange={onChange}
             autoFocus
@@ -133,7 +131,7 @@ export default function Gate() {
           />
           <p className="field-hint" id="gate-hint">Type or paste the code, for example PK-7KQ2XM. The dash is optional.</p>
         </div>
-        <button type="submit" className="btn btn-primary btn-block" style={bigButton} disabled={looking || acting}>
+        <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={looking || acting}>
           {looking ? <Spinner inline /> : null}
           Find booking
         </button>
@@ -156,7 +154,7 @@ export default function Gate() {
           <BookingSummary booking={booking} showCustomer />
           {status === 'confirmed' ? (
             <div className="stack">
-              <button type="button" className="btn btn-primary btn-block" style={bigButton} onClick={() => act('in')} disabled={acting} aria-busy={acting || undefined}>
+              <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => act('in')} disabled={acting} aria-busy={acting || undefined}>
                 {acting ? <Spinner inline /> : null}
                 Check in
               </button>
@@ -164,7 +162,7 @@ export default function Gate() {
             </div>
           ) : status === 'checked_in' ? (
             <div className="stack">
-              <button type="button" className="btn btn-primary btn-block" style={bigButton} onClick={() => act('out')} disabled={acting} aria-busy={acting || undefined}>
+              <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => act('out')} disabled={acting} aria-busy={acting || undefined}>
                 {acting ? <Spinner inline /> : null}
                 Check out
               </button>

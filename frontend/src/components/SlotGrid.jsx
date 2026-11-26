@@ -29,7 +29,7 @@ export default function SlotGrid({ slots, value, onChange, legend = 'Choose a sl
   const anyDisabled = disabled || !any;
 
   return (
-    <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+    <fieldset className="stack fieldset-reset">
       <legend className="visually-hidden">{legend}</legend>
       <div className="slot-grid">
         <label

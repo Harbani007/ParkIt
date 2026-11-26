@@ -37,11 +37,14 @@ function pageTitle(pathname) {
 function GuestOnly({ children }) {
   const { user, loading } = useAuth();
   const [params] = useSearchParams();
+  const location = useLocation();
   if (loading) return children;
   if (user) {
-    const next = params.get('next');
-    const safe = next && next.startsWith('/') && !next.startsWith('//');
-    return <Navigate to={safe ? next : roleHome(user.role)} replace />;
+    // Same precedence as Login: ?next=, then location.state.next, then the role's home. Login's
+    // own navigate() after a successful submit therefore resolves to the same target.
+    const safe = (v) => (typeof v === 'string' && v.startsWith('/') && !v.startsWith('//') ? v : null);
+    const next = safe(params.get('next')) ?? safe(location.state?.next);
+    return <Navigate to={next ?? roleHome(user.role)} replace />;
   }
   return children;
 }
@@ -101,7 +104,7 @@ function ApiStatus() {
       });
     return () => ctrl.abort();
   }, []);
-  return <p className="muted" style={{ margin: 0 }}>API: {state}</p>;
+  return <p className="muted m-0">API: {state}</p>;
 }
 
 export default function App() {

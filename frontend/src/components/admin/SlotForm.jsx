@@ -65,6 +65,7 @@ export default function SlotForm({ slot = null, busy = false, error = '', onSubm
         <Field label="Daily rate (₹)" required inputMode="decimal" value={values.daily_rate}
           onChange={set('daily_rate')} error={errors.daily_rate} hint="Up to 2 decimals, for example 300.00" />
       </div>
+      <p className="field-hint">Price = hours × hourly rate, capped at the daily rate per booking.</p>
       <p className="muted">Rate changes apply to new bookings only; existing bookings keep their price.</p>
       <div className="row">
         <button type="submit" className="btn btn-primary" disabled={busy} aria-busy={busy || undefined}>

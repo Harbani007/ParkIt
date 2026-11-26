@@ -239,7 +239,7 @@ export default function Book() {
       <div className="container container-narrow stack">
         <PageHeader title="Booking confirmed" headingRef={doneHeading} />
         <Alert tone="success">Your slot is reserved and the simulated payment of {formatINR(booking.amount)} is complete.</Alert>
-        <div className="card stack" style={{ alignItems: 'center', textAlign: 'center' }}>
+        <div className="card stack stack-center">
           <p className="muted">Your booking code</p>
           <span className="code">{booking.booking_code}</span>
           {booking.qr_url ? (
@@ -271,15 +271,15 @@ export default function Book() {
         <form className="stack" onSubmit={submit} noValidate>
           <div className="card stack">
             <h2>Summary</h2>
-            <dl className="stack" style={{ margin: 0 }}>
-              <div><dt className="muted">When</dt><dd style={{ margin: 0 }}>{formatTimeRange(startsAt, startsAtISO(date, endTimeLabel(start, hours)))}</dd></div>
-              <div><dt className="muted">Duration</dt><dd style={{ margin: 0 }}>{hours} {hours === 1 ? 'hour' : 'hours'}</dd></div>
-              <div><dt className="muted">Vehicle type</dt><dd style={{ margin: 0 }}>{type === 'car' ? 'Car' : 'Bike'}</dd></div>
+            <dl className="dl dl-tight">
+              <div><dt>When</dt><dd>{formatTimeRange(startsAt, startsAtISO(date, endTimeLabel(start, hours)))}</dd></div>
+              <div><dt>Duration</dt><dd>{hours} {hours === 1 ? 'hour' : 'hours'}</dd></div>
+              <div><dt>Vehicle type</dt><dd>{type === 'car' ? 'Car' : 'Bike'}</dd></div>
               <div>
-                <dt className="muted">Slot</dt>
-                <dd style={{ margin: 0 }}>{selected === ANY_SLOT ? 'Assigned on booking (least-used free slot)' : selectedSlot?.code}</dd>
+                <dt>Slot</dt>
+                <dd>{selected === ANY_SLOT ? 'Assigned on booking (least-used free slot)' : selectedSlot?.code}</dd>
               </div>
-              <div><dt className="muted">Amount</dt><dd style={{ margin: 0 }}><strong>{price}</strong></dd></div>
+              <div><dt>Amount</dt><dd><strong>{price}</strong></dd></div>
             </dl>
           </div>
 
@@ -370,7 +370,7 @@ export default function Book() {
           />
         </div>
         <div className="field">
-          <span id="vtype-label" style={{ fontWeight: 600 }}>Vehicle type</span>
+          <span id="vtype-label" className="label-text">Vehicle type</span>
           <div className="segmented" role="radiogroup" aria-labelledby="vtype-label">
             {['car', 'bike'].map((t) => (
               <label key={t}>
@@ -405,7 +405,7 @@ export default function Book() {
         ) : avail.status === 'idle' || (avail.status === 'loading' && avail.slots.length === 0) ? (
           <div className="slot-grid" aria-label="Loading slots">
             <Spinner label="Loading slots" />
-            {[0, 1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ minHeight: '5.5rem' }} />)}
+            {[0, 1, 2, 3].map((i) => <div key={i} className="skeleton skeleton-tile" />)}
           </div>
         ) : slots.length === 0 ? (
           <EmptyState
