@@ -41,16 +41,16 @@ migrates cleanly on an empty database.
 ## Phase 2: Backend API with JWT authentication
 Deliverable: working implementation (server side).
 
-- [ ] Auth: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`; bcrypt + JWT
-- [ ] Middleware: `requireAuth`, `requireRole('admin')`, zod request validation
-- [ ] Slots: list, availability with price for a date and time range (D16: no separate quote endpoint)
-- [ ] Bookings: create (simulated payment row), list mine, get one, cancel
-- [ ] Double booking prevented by the DB exclusion constraint; API maps it to 409
-- [ ] QR code generation (`qrcode` package) stored through the storage adapter, local driver
-- [ ] Admin: CRUD slots, set rates and opening hours, block/unblock, list bookings by day
-- [ ] Admin: check-in and check-out by booking code; occupancy and revenue summary
-- [ ] Slot auto-assignment: "any free slot" picks the least-used free slot (D18)
-- [ ] Integration tests against a real Postgres (CI service container)
+- [x] Auth: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`; bcrypt + JWT
+- [x] Middleware: `requireAuth`, `requireRole('admin')`, zod request validation
+- [x] Slots: list, availability with price for a date and time range (D16: no separate quote endpoint)
+- [x] Bookings: create (simulated payment row), list mine, get one, cancel
+- [x] Double booking prevented by the DB exclusion constraint; API maps it to 409
+- [x] QR code generation (`qrcode` package) stored through the storage adapter, local driver
+- [x] Admin: CRUD slots, set rates and opening hours, block/unblock, list bookings by day
+- [x] Admin: check-in and check-out by booking code; occupancy and revenue summary
+- [x] Slot auto-assignment: "any free slot" picks the least-used free slot (D18)
+- [x] Integration tests against a real Postgres (CI service container)
 - [ ] Early cloud milestone: smoke deploy so `/api/health` answers through CloudFront → EC2 → RDS
       (proves the AWS path long before the final demo; steps in `docs/architecture.md` §8)
 
@@ -85,6 +85,8 @@ Deliverable: cloud deployment with demonstration, system architecture diagram.
 - [ ] Private S3 bucket for QR codes and receipts; S3 storage driver with pre-signed URLs;
       EC2 instance role grants access (no access keys on the server)
 - [ ] Secrets in SSM Parameter Store, loaded at start-up (no `.env` on the server)
+- [ ] Verified TLS to RDS: `pool.js` uses the AWS RDS CA bundle (`global-bundle.pem`) instead of
+      `rejectUnauthorized: false`
 - [ ] S3 lifecycle rule expiring QR files of finished bookings
 - [ ] CloudWatch dashboard (EC2 CPU, RDS connections, CloudFront 5xx) and alarms, with screenshots
       for the report

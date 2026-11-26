@@ -7,7 +7,8 @@ D1..D20 are in `docs/requirements.md`.
 
 - Base path `/api`. Requests and responses are JSON (`Content-Type: application/json`).
 - Auth: `Authorization: Bearer <jwt>` from register or login. The token carries `sub` (user id) and
-  `role` (`customer` or `admin`) and expires after `JWT_EXPIRES_IN` (default 7 days).
+  `role` (`customer` or `admin`) and expires after `JWT_EXPIRES_IN` (default 7 days). The role is read
+  from the token, so a role change takes effect only when the token expires (accepted limitation).
 - Auth levels below: **none**, **user** (any signed-in user), **customer**, **admin**, **owner or
   admin** (the booking's customer or any admin).
 - Times are ISO 8601 with an offset, e.g. `2026-12-01T10:00:00+05:30`. Responses use UTC
@@ -31,7 +32,7 @@ D1..D20 are in `docs/requirements.md`.
 | 409 | Conflict: slot already booked, vehicle already booked at that time (D17), slot blocked, no free slot (D18), 3 active bookings already (D20), duplicate email or slot code, state change not allowed (cancel too late, check-in outside window, booking missed), deleting a booked slot |
 | 429 | Too many sign-in or registration attempts from one IP (D20) |
 
-**Database errors the API maps.** `23P01` on constraint `bookings_no_slot_overlap` → 409 "This slot was just booked for that time"; `23P01` on `bookings_no_vehicle_overlap` → 409 "This vehicle already has a booking at that time"; `23505` (unique) → 409 naming the duplicate field. Branch on `err.constraint`, never on the message text.
+**Database errors the API maps.** `23P01` on constraint `bookings_no_slot_overlap` → 409 "This slot was just booked for that time"; `23P01` on `bookings_no_vehicle_overlap` → 409 "This vehicle already has a booking at that time"; `23505` (unique) → 409 naming the duplicate field. Branch on `err.constraint`, never on the message text. Two simultaneous inserts on the same slot can also make Postgres report a deadlock (`40P01`), because an exclusion constraint writes its index entry before checking; the booking service treats that as a lost race and retries, so the client still gets the normal slot 409 (or, after 3 retries, 409 "Slot is busy, please try again").
 
 ### Shared objects
 
@@ -180,7 +181,8 @@ Body: `{ "code": string 1-20, "vehicle_type": "car"|"bike", "hourly_rate": numbe
 ### `PATCH /api/admin/slots/:id` (admin)
 Body: any of `code`, `vehicle_type`, `hourly_rate`, `daily_rate`, `is_blocked`. Rate changes do not
 affect existing bookings (D16); blocking does not cancel them (D12).
-`200` Slot. Errors: 400; 404; 409 code already used.
+`200` Slot. Errors: 400; 404; 409 code already used; 409 `"Slot has active bookings; its type cannot change"`
+(`vehicle_type` change while a `confirmed` or `checked_in` booking has `ends_at` in the future).
 
 ### `DELETE /api/admin/slots/:id` (admin)
 `204`. Errors: 404; 409 `"Slot has bookings; block it instead"` (D13).
@@ -203,7 +205,7 @@ the admin booking list highlights overstays (known limitation, D10).
 
 ### `GET /api/admin/summary` (admin)
 Query: `from`, `to` (IST dates, inclusive, `to ≥ from`, at most 366 days). Definitions in D15.
-`upcoming` = `confirmed` with `starts_at > now`. Occupancy divides by all slots × current opening
+`upcoming` = `confirmed` with `ends_at > now`, so every booking is counted in exactly one state. Occupancy divides by all slots × current opening
 hours and is capped at 100.
 ```json
 {
