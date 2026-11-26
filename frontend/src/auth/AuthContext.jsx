@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { TOKEN_KEY, setTokenGetter, setUnauthorizedHandler } from '../api/client.js';
 import * as parkit from '../api/parkit.js';
 
@@ -36,6 +36,7 @@ export function roleHome(role) {
 
 export function AuthProvider({ children }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [status, setStatus] = useState(() => (readToken() ? 'loading' : 'ready'));
 
@@ -96,10 +97,20 @@ export function AuthProvider({ children }) {
     async (fields) => startSession(await parkit.register(fields)),
     [startSession],
   );
+  // Navigate home first and only drop the session once the location is "/", so a route guard
+  // on the current page cannot redirect to /login?next= in between.
+  const [loggingOut, setLoggingOut] = useState(false);
   const logout = useCallback(() => {
-    clearSession();
-    setStatus('ready');
-  }, [clearSession]);
+    navigate('/');
+    setLoggingOut(true);
+  }, [navigate]);
+  useEffect(() => {
+    if (loggingOut && location.pathname === '/') {
+      clearSession();
+      setStatus('ready');
+      setLoggingOut(false);
+    }
+  }, [loggingOut, location.pathname, clearSession]);
 
   const value = useMemo(
     () => ({

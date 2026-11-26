@@ -50,7 +50,7 @@ function GuestOnly({ children }) {
 }
 
 function NavBar() {
-  const { user, role, logout } = useAuth();
+  const { user, role, loading, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
 
@@ -58,8 +58,11 @@ function NavBar() {
     setOpen(false);
   }, [pathname]);
 
+  // While the session is being restored, show nothing account-specific (no guest flash).
   const links =
-    role === 'admin'
+    loading
+      ? []
+      : role === 'admin'
       ? [['/admin', 'Dashboard', true], ['/admin/gate', 'Gate'], ['/admin/slots', 'Slots'], ['/admin/settings', 'Settings']]
       : role === 'customer'
         ? [['/book', 'Book a slot'], ['/bookings', 'My bookings', true]]
