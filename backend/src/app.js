@@ -4,6 +4,12 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from './config.js';
 import { healthRouter } from './routes/health.js';
+import { authRouter } from './routes/auth.js';
+import { facilityRouter } from './routes/facility.js';
+import { slotsRouter } from './routes/slots.js';
+import { bookingsRouter } from './routes/bookings.js';
+import { filesRouter } from './routes/files.js';
+import { adminRouter } from './routes/admin/index.js';
 import { errorHandler, notFound } from './middleware/errors.js';
 
 export function createApp() {
@@ -15,8 +21,18 @@ export function createApp() {
   if (config.env !== 'test') app.use(morgan('dev'));
 
   // All routes live under /api so CloudFront can forward /api/* to EC2 (Phase 4).
+  // API responses must never be cached (CloudFront forwards Authorization via a cache policy).
+  app.use('/api', (_req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
   app.use('/api/health', healthRouter);
-  // Phase 2 mounts: /api/auth, /api/slots, /api/bookings, /api/admin
+  app.use('/api/auth', authRouter);
+  app.use('/api/facility', facilityRouter);
+  app.use('/api/slots', slotsRouter);
+  app.use('/api/bookings', bookingsRouter);
+  app.use('/api/files', filesRouter);
+  app.use('/api/admin', adminRouter);
 
   app.use(notFound);
   app.use(errorHandler);
