@@ -30,9 +30,15 @@ Start about 30 minutes early.
 5. Fill in the two passwords:
    - **DbPassword**: letters, digits, `_ . -` only, at least 8 characters.
    - **AdminPassword**: same rules, and it must NOT be `admin12345`. This is the admin login.
+   - **BookingEmails**: `yes` to send booking emails through Amazon SNS, `no` to skip them.
+   - **OwnerEmail** (only with `yes`): your own real email, to get a copy of every booking email.
+     Leave it empty if you do not want copies.
    - Leave everything else as it is (admin email stays `admin@parkit.local`).
 6. **Next**, **Next** (nothing to change on the options page). On the last page click **Submit**.
    No capabilities box needs ticking.
+
+   If the stack fails on `BookingTopic` (the sandbox refused SNS), delete the stack and create it
+   again with **BookingEmails** = `no`. Everything else works without emails.
 
 ## 3. Wait (about 15 minutes)
 
@@ -54,6 +60,10 @@ the browser may say "not secure". That is expected for the sandbox.
 
 1. **Customer**: Register a new account, log in, pick a slot and time, book it. The booking
    page shows a **QR code** and a booking ID.
+   - With booking emails on, register with a **real inbox you can open**. AWS first sends an
+     email titled **"AWS Notification - Subscription Confirmation"**: click **Confirm
+     subscription** in it *before* booking. Then each booking and cancellation sends an email
+     from "ParkIt". (If you gave an OwnerEmail, confirm that subscription email too.)
 2. **Admin**: log out, log in with `admin@parkit.local` and your AdminPassword. Show the
    **dashboard** (occupancy and revenue), the slots page and the rates/settings.
 3. **Gate**: open the gate page, enter the booking ID, do **check-in**, later **check-out**,
@@ -64,6 +74,8 @@ the browser may say "not secure". That is expected for the sandbox.
    - **EC2** -> Instances -> `parkit-web`: show its security group has only port 80 open.
    - **RDS** -> Databases: show the instance, that **Publicly accessible = No**, and its security
      group only allows port 5432 from the web server's group.
+   - **SNS** (if booking emails are on) -> Topics -> `parkit-bookings` -> Subscriptions: each
+     customer's email, with a **filter policy** so they only get their own bookings.
    - **CloudFormation** -> Template tab: this is the whole infrastructure as code.
 
 ## 6. Screenshots for the report
@@ -75,6 +87,8 @@ the browser may say "not secure". That is expected for the sandbox.
 - EC2 instance details and its security group inbound rules
 - RDS instance details (Publicly accessible: No) and its security group rules
 - The Template tab or the YAML file
+- If booking emails are on: the SNS topic's Subscriptions tab, one subscription's filter policy,
+  and the booking email in your inbox
 
 ## 7. Troubleshooting
 
@@ -92,6 +106,12 @@ red `CREATE_FAILED` row; the "Status reason" column says why. Common ones:
 3. API log: `sudo journalctl -u parkit-api -n 100 --no-pager`
 4. Health check: `curl http://127.0.0.1/api/health` (should contain `"db":"up"`).
 5. Restart the API: `sudo systemctl restart parkit-api`
+
+**No booking email arrives.** Check spam first. The customer must have clicked the confirmation
+link (SNS -> Topics -> `parkit-bookings` -> Subscriptions shows "Pending confirmation" until then).
+Only bookings made after confirming are emailed. If the API log shows `SNS publish failed` or
+`SNS subscribe failed` with AccessDenied, the sandbox's LabRole does not allow SNS: bookings still
+work, only the emails are skipped.
 
 **Admin login fails.** Use the exact AdminPassword you typed. The admin is only created the
 first time, so changing the parameter later does not change the password; delete the stack and

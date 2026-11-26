@@ -4,6 +4,7 @@ import { roleHome, useAuth } from '../auth/AuthContext.jsx';
 import Alert from '../components/Alert.jsx';
 import Field from '../components/Field.jsx';
 import Spinner from '../components/Spinner.jsx';
+import { useConfig } from '../api/useConfig.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const FIELDS = ['name', 'email', 'phone', 'password'];
@@ -25,6 +26,7 @@ function detailsToErrors(details) {
 
 export default function Register() {
   const { register } = useAuth();
+  const { email_notifications: emailsOn } = useConfig();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = safeNext(params.get('next'));
@@ -110,7 +112,17 @@ export default function Register() {
             onChange={set('name')}
           />
         </Field>
-        <Field label="Email" id="register-email" error={errors.email} required>
+        <Field
+          label="Email"
+          id="register-email"
+          error={errors.email}
+          required
+          hint={
+            emailsOn
+              ? 'We email your booking confirmations. AWS will first send you a message titled "AWS Notification - Subscription Confirmation": click its link to turn the emails on.'
+              : undefined
+          }
+        >
           <input
             className="input"
             type="email"

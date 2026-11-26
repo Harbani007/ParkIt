@@ -2,7 +2,8 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   ParkIt on AWS Academy Cloud Foundations Sandbox (us-east-1).
   One EC2 server (Nginx + Node API + built React app), one RDS PostgreSQL database,
-  one private S3 bucket for QR images. Everything is created by this one template.
+  one private S3 bucket for QR images, and (optional) one SNS topic for booking emails.
+  Everything is created by this one template.
 
 # -----------------------------------------------------------------------------
 # Parameters: the only things you type in when you create the stack.
@@ -51,12 +52,35 @@ Parameters:
     Default: "22.14.0"
     Description: Node.js 22.x version downloaded from nodejs.org (Amazon Linux's own Node is too old).
 
+  BookingEmails:
+    Type: String
+    Default: "no"
+    AllowedValues: ["yes", "no"]
+    Description: >
+      yes = create an SNS topic and email customers when a booking is confirmed or cancelled
+      (each customer first gets an AWS "Subscription Confirmation" email to click).
+      If stack creation fails on the SNS topic, delete the stack and create it again with no.
+
+  OwnerEmail:
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+"
+    Description: >
+      Optional, used only when BookingEmails is yes. A real inbox (yours) that receives a copy
+      of every booking email. Leave empty for none.
+
   # Latest Amazon Linux 2023 image. AWS publishes the current AMI id in this public
   # SSM parameter, so we never hard-code an AMI id.
   LatestAmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
     Description: Leave as is.
+
+Conditions:
+  EmailsOn: !Equals [!Ref BookingEmails, "yes"]
+  OwnerCopy: !And
+    - !Condition EmailsOn
+    - !Not [!Equals [!Ref OwnerEmail, ""]]
 
 Resources:
   # ---------------------------------------------------------------------------
@@ -130,6 +154,27 @@ Resources:
               SSEAlgorithm: AES256
 
   # ---------------------------------------------------------------------------
+  # Booking emails (only when BookingEmails = yes). The app subscribes each customer's
+  # email with a filter policy on their own address and tags every message with the
+  # customer's email, so each customer only receives their own bookings. The owner's
+  # subscription has no filter, so it receives every message.
+  # ---------------------------------------------------------------------------
+  BookingTopic:
+    Type: AWS::SNS::Topic
+    Condition: EmailsOn
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-bookings"
+      DisplayName: ParkIt
+
+  OwnerSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: OwnerCopy
+    Properties:
+      TopicArn: !Ref BookingTopic
+      Protocol: email
+      Endpoint: !Ref OwnerEmail
+
+  # ---------------------------------------------------------------------------
   # The web server. It uses the sandbox's ready-made LabInstanceProfile (role LabRole),
   # which is how the app gets S3 access without any access keys.
   # CreationPolicy: CloudFormation waits (up to 25 min) for the script at the bottom of
@@ -159,132 +204,135 @@ Resources:
       # The setup script that runs once, as root, on first boot. Everything is logged to
       # /var/log/parkit-setup.log. (${!x} is how CloudFormation writes a literal ${x} for bash.)
       UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          set -euxo pipefail
-          exec > >(tee -a /var/log/parkit-setup.log) 2>&1
-          export HOME=/root
-          export PATH=/usr/local/bin:$PATH
+        Fn::Base64: !Sub
+          - |
+              #!/bin/bash
+              set -euxo pipefail
+              exec > >(tee -a /var/log/parkit-setup.log) 2>&1
+              export HOME=/root
+              export PATH=/usr/local/bin:$PATH
 
-          # If anything below fails, tell CloudFormation straight away so the stack fails
-          # fast instead of waiting 25 minutes. Check the log file named above.
-          trap '/opt/aws/bin/cfn-signal -e 1 --stack ${AWS::StackName} --resource WebServer --region ${AWS::Region}' ERR
+              # If anything below fails, tell CloudFormation straight away so the stack fails
+              # fast instead of waiting 25 minutes. Check the log file named above.
+              trap '/opt/aws/bin/cfn-signal -e 1 --stack ${AWS::StackName} --resource WebServer --region ${AWS::Region}' ERR
 
-          # 1. Packages
-          dnf install -y git nginx aws-cfn-bootstrap
+              # 1. Packages
+              dnf install -y git nginx aws-cfn-bootstrap
 
-          # 2. A little swap so npm/vite do not run out of memory on a 1 GB machine
-          dd if=/dev/zero of=/swapfile bs=1M count=1024
-          chmod 600 /swapfile
-          mkswap /swapfile
-          swapon /swapfile
+              # 2. A little swap so npm/vite do not run out of memory on a 1 GB machine
+              dd if=/dev/zero of=/swapfile bs=1M count=1024
+              chmod 600 /swapfile
+              mkswap /swapfile
+              swapon /swapfile
 
-          # 3. Node.js from nodejs.org (pinned version)
-          curl -fsSL https://nodejs.org/dist/v${NodeVersion}/node-v${NodeVersion}-linux-x64.tar.xz -o /tmp/node.tar.xz
-          mkdir -p /usr/local/lib/nodejs
-          tar -xJf /tmp/node.tar.xz -C /usr/local/lib/nodejs
-          ln -sf /usr/local/lib/nodejs/node-v${NodeVersion}-linux-x64/bin/node /usr/local/bin/node
-          ln -sf /usr/local/lib/nodejs/node-v${NodeVersion}-linux-x64/bin/npm /usr/local/bin/npm
-          ln -sf /usr/local/lib/nodejs/node-v${NodeVersion}-linux-x64/bin/npx /usr/local/bin/npx
-          node --version
+              # 3. Node.js from nodejs.org (pinned version)
+              curl -fsSL https://nodejs.org/dist/v${NodeVersion}/node-v${NodeVersion}-linux-x64.tar.xz -o /tmp/node.tar.xz
+              mkdir -p /usr/local/lib/nodejs
+              tar -xJf /tmp/node.tar.xz -C /usr/local/lib/nodejs
+              ln -sf /usr/local/lib/nodejs/node-v${NodeVersion}-linux-x64/bin/node /usr/local/bin/node
+              ln -sf /usr/local/lib/nodejs/node-v${NodeVersion}-linux-x64/bin/npm /usr/local/bin/npm
+              ln -sf /usr/local/lib/nodejs/node-v${NodeVersion}-linux-x64/bin/npx /usr/local/bin/npx
+              node --version
 
-          # 4. Get the code and build it
-          git clone --depth 1 --branch ${Branch} ${RepoUrl} /opt/parkit
-          cd /opt/parkit/frontend
-          npm ci
-          npm run build
-          cd /opt/parkit/backend
-          npm ci --omit=dev
+              # 4. Get the code and build it
+              git clone --depth 1 --branch ${Branch} ${RepoUrl} /opt/parkit
+              cd /opt/parkit/frontend
+              npm ci
+              npm run build
+              cd /opt/parkit/backend
+              npm ci --omit=dev
 
-          # 5. Settings file, readable by root only. The JWT secret is invented here and
-          #    never leaves this machine.
-          umask 077
-          JWT=$(openssl rand -hex 32)
-          cat > /etc/parkit.env <<EOF
-          NODE_ENV=production
-          PORT=4000
-          DATABASE_URL=postgres://parkit_admin:${DbPassword}@${DB.Endpoint.Address}:5432/parkit
-          DATABASE_SSL=true
-          JWT_SECRET=$JWT
-          JWT_EXPIRES_IN=7d
-          STORAGE_DRIVER=s3
-          S3_ASSETS_BUCKET=${QrBucket}
-          AWS_REGION=us-east-1
-          TRUST_PROXY=1
-          ADMIN_EMAIL=${AdminEmail}
-          ADMIN_PASSWORD=${AdminPassword}
-          EOF
-          chmod 600 /etc/parkit.env
-          umask 022
+              # 5. Settings file, readable by root only. The JWT secret is invented here and
+              #    never leaves this machine.
+              umask 077
+              JWT=$(openssl rand -hex 32)
+              cat > /etc/parkit.env <<EOF
+              NODE_ENV=production
+              PORT=4000
+              DATABASE_URL=postgres://parkit_admin:${DbPassword}@${DB.Endpoint.Address}:5432/parkit
+              DATABASE_SSL=true
+              JWT_SECRET=$JWT
+              JWT_EXPIRES_IN=7d
+              STORAGE_DRIVER=s3
+              S3_ASSETS_BUCKET=${QrBucket}
+              AWS_REGION=us-east-1
+              TRUST_PROXY=1
+              ADMIN_EMAIL=${AdminEmail}
+              ADMIN_PASSWORD=${AdminPassword}
+              SNS_TOPIC_ARN=${SnsTopicArn}
+              EOF
+              chmod 600 /etc/parkit.env
+              umask 022
 
-          # 6. Create the tables and the demo data (reads the settings file)
-          set -a
-          . /etc/parkit.env
-          set +a
-          cd /opt/parkit/backend
-          node src/db/migrate.js
-          node src/db/seed.js
+              # 6. Create the tables and the demo data (reads the settings file)
+              set -a
+              . /etc/parkit.env
+              set +a
+              cd /opt/parkit/backend
+              node src/db/migrate.js
+              node src/db/seed.js
 
-          # 7. Run the API as a normal (non-root) user, restarted automatically if it dies
-          useradd --system --no-create-home --shell /sbin/nologin parkit
-          cat > /etc/systemd/system/parkit-api.service <<'EOF'
-          [Unit]
-          Description=ParkIt API
-          After=network-online.target
+              # 7. Run the API as a normal (non-root) user, restarted automatically if it dies
+              useradd --system --no-create-home --shell /sbin/nologin parkit
+              cat > /etc/systemd/system/parkit-api.service <<'EOF'
+              [Unit]
+              Description=ParkIt API
+              After=network-online.target
 
-          [Service]
-          User=parkit
-          WorkingDirectory=/opt/parkit/backend
-          EnvironmentFile=/etc/parkit.env
-          ExecStart=/usr/local/bin/node src/server.js
-          Restart=always
-          RestartSec=3
+              [Service]
+              User=parkit
+              WorkingDirectory=/opt/parkit/backend
+              EnvironmentFile=/etc/parkit.env
+              ExecStart=/usr/local/bin/node src/server.js
+              Restart=always
+              RestartSec=3
 
-          [Install]
-          WantedBy=multi-user.target
-          EOF
-          systemctl daemon-reload
-          systemctl enable --now parkit-api
+              [Install]
+              WantedBy=multi-user.target
+              EOF
+              systemctl daemon-reload
+              systemctl enable --now parkit-api
 
-          # 8. Nginx: serve the built website, send /api/ to the Node API
-          mkdir -p /usr/share/nginx/parkit
-          cp -r /opt/parkit/frontend/dist/. /usr/share/nginx/parkit/
-          cat > /etc/nginx/nginx.conf <<'EOF'
-          user nginx;
-          worker_processes auto;
-          pid /run/nginx.pid;
-          events { worker_connections 512; }
-          http {
-            include /etc/nginx/mime.types;
-            default_type application/octet-stream;
-            server {
-              listen 80 default_server;
-              root /usr/share/nginx/parkit;
-              location /api/ {
-                proxy_pass http://127.0.0.1:4000;
-                proxy_set_header Host $host;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
+              # 8. Nginx: serve the built website, send /api/ to the Node API
+              mkdir -p /usr/share/nginx/parkit
+              cp -r /opt/parkit/frontend/dist/. /usr/share/nginx/parkit/
+              cat > /etc/nginx/nginx.conf <<'EOF'
+              user nginx;
+              worker_processes auto;
+              pid /run/nginx.pid;
+              events { worker_connections 512; }
+              http {
+                include /etc/nginx/mime.types;
+                default_type application/octet-stream;
+                server {
+                  listen 80 default_server;
+                  root /usr/share/nginx/parkit;
+                  location /api/ {
+                    proxy_pass http://127.0.0.1:4000;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                  }
+                  location / {
+                    try_files $uri /index.html;
+                  }
+                }
               }
-              location / {
-                try_files $uri /index.html;
-              }
-            }
-          }
-          EOF
-          nginx -t
-          systemctl enable --now nginx
+              EOF
+              nginx -t
+              systemctl enable --now nginx
 
-          # 9. Wait until the app answers and the database is reachable (up to ~5 min)
-          ok=0
-          for i in $(seq 1 60); do
-            if curl -fs http://127.0.0.1/api/health | grep -q '"db":"up"'; then ok=1; break; fi
-            sleep 5
-          done
-          [ "$ok" = "1" ]
+              # 9. Wait until the app answers and the database is reachable (up to ~5 min)
+              ok=0
+              for i in $(seq 1 60); do
+                if curl -fs http://127.0.0.1/api/health | grep -q '"db":"up"'; then ok=1; break; fi
+                sleep 5
+              done
+              [ "$ok" = "1" ]
 
-          # 10. Tell CloudFormation we are done
-          /opt/aws/bin/cfn-signal -e 0 --stack ${AWS::StackName} --resource WebServer --region ${AWS::Region}
+              # 10. Tell CloudFormation we are done
+              /opt/aws/bin/cfn-signal -e 0 --stack ${AWS::StackName} --resource WebServer --region ${AWS::Region}
+          - SnsTopicArn: !If [EmailsOn, !Ref BookingTopic, ""]
 
 # -----------------------------------------------------------------------------
 # Outputs: shown on the stack's Outputs tab when it finishes.
@@ -299,6 +347,10 @@ Outputs:
   QrBucket:
     Description: S3 bucket that holds the QR images.
     Value: !Ref QrBucket
+  BookingTopic:
+    Condition: EmailsOn
+    Description: SNS topic for booking emails.
+    Value: !Ref BookingTopic
   DatabaseEndpoint:
     Description: RDS address (private; only the web server can reach it).
     Value: !GetAtt DB.Endpoint.Address

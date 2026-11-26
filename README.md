@@ -17,6 +17,8 @@ and out at the gate, and sees occupancy and revenue. Payment is simulated in thi
 - **No double booking:** PostgreSQL exclusion constraints refuse overlapping bookings for the same
   slot or vehicle, even when two requests arrive at the same moment.
 - **"Any free slot"** assigns the least-used free slot of the last 30 days, spreading use evenly.
+- **Booking emails** (optional): Amazon SNS emails each customer when a booking is confirmed or
+  cancelled, using a filter policy so customers only receive their own bookings.
 
 ## Architecture (AWS)
 
@@ -29,6 +31,7 @@ template builds everything:
 | API (Node.js + Express) | `npm run dev` on :4000 | Node.js on the same **EC2** (systemd), behind Nginx |
 | Database (PostgreSQL) | Docker container | **Amazon RDS for PostgreSQL** (private, backups on) |
 | QR code images | `backend/uploads/` | Private **Amazon S3** bucket, pre-signed links |
+| Booking emails | off | **Amazon SNS** topic (optional, `BookingEmails = yes`) |
 | Infrastructure | `docker compose` | **AWS CloudFormation** (`infra/parkit-sandbox.yaml`) |
 | Permissions | none | IAM role through `LabInstanceProfile` (no access keys) |
 
@@ -41,7 +44,8 @@ Follow [infra/SANDBOX-DEPLOY.md](infra/SANDBOX-DEPLOY.md). In short:
 
 1. Start the AWS Academy sandbox and open the console (us-east-1).
 2. CloudFormation → Create stack → upload `infra/parkit-sandbox.yaml`.
-3. Type a database password and an admin password, then create the stack.
+3. Type a database password and an admin password (and choose whether to send booking emails),
+   then create the stack.
 4. After about 15 minutes, open the `WebsiteURL` output.
 
 The sandbox deletes everything when the session ends, so the stack is created again before each demo.

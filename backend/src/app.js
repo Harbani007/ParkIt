@@ -10,6 +10,7 @@ import { slotsRouter } from './routes/slots.js';
 import { bookingsRouter } from './routes/bookings.js';
 import { filesRouter } from './routes/files.js';
 import { adminRouter } from './routes/admin/index.js';
+import { configRouter } from './routes/config.js';
 import { errorHandler, notFound } from './middleware/errors.js';
 
 export function createApp() {
@@ -29,6 +30,7 @@ export function createApp() {
   });
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);
+  app.use('/api/config', configRouter);
   app.use('/api/facility', facilityRouter);
   app.use('/api/slots', slotsRouter);
   app.use('/api/bookings', bookingsRouter);

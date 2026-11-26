@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { createBooking, getAvailability, getFacility } from '../api/parkit.js';
 import { fileUrl } from '../api/client.js';
+import { useConfig } from '../api/useConfig.js';
 import Alert from '../components/Alert.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Field from '../components/Field.jsx';
@@ -26,6 +27,7 @@ import { isValidVehicleNumber, normaliseVehicleNumber } from '../lib/codes.js';
 const isAbort = (e) => e?.name === 'AbortError';
 
 export default function Book() {
+  const { email_notifications: emailsOn } = useConfig();
   const [facility, setFacility] = useState(null);
   const [facilityError, setFacilityError] = useState(null);
 
@@ -251,6 +253,9 @@ export default function Book() {
             {formatTimeRange(booking.starts_at, booking.ends_at)}
           </p>
           <p className="muted">Show the code or QR at the gate.</p>
+          {emailsOn ? (
+            <p className="muted">A confirmation email is on its way (if you confirmed the AWS subscription email).</p>
+          ) : null}
         </div>
         <div className="row">
           <Link className="btn btn-primary" to={`/bookings/${encodeURIComponent(booking.booking_code)}`}>View booking</Link>

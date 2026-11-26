@@ -10,6 +10,7 @@ import {
   listMine,
   toBookingJson,
 } from '../services/bookings.js';
+import { sendBookingEmail } from '../services/notify.js';
 
 export const bookingsRouter = Router();
 
@@ -42,6 +43,7 @@ bookingsRouter.post('/', requireAuth, requireRole('customer'), validate({ body: 
     now,
   });
   res.status(201).json(await toBookingJson(row, { viewer: req.user, now }));
+  sendBookingEmail('confirmed', row); // after the response; never fails the booking (D21)
 });
 
 // Declared before '/:code' so "mine" is not read as a booking code.
@@ -61,4 +63,5 @@ bookingsRouter.post('/:code/cancel', requireAuth, async (req, res) => {
   const now = new Date();
   const row = await cancelBooking({ code: req.params.code, viewer: req.user, now });
   res.json(await toBookingJson(row, { viewer: req.user, now, includeCustomer: req.user.role === 'admin' }));
+  sendBookingEmail('cancelled', row);
 });
