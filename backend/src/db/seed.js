@@ -2,15 +2,27 @@
 import bcrypt from 'bcryptjs';
 import { pool } from './pool.js';
 
-const ADMIN_EMAIL = 'admin@parkit.local';
-const ADMIN_PASSWORD = 'admin12345'; // dev only; change on any shared environment
+const DEV_ADMIN_PASSWORD = 'admin12345';
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL ?? 'admin@parkit.local').toLowerCase();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? DEV_ADMIN_PASSWORD;
+const isDev = ['development', 'test'].includes(process.env.NODE_ENV);
 
 async function seed() {
+  // The development password is in this file, so it must never reach a shared environment.
+  if (!isDev && (!process.env.ADMIN_PASSWORD || ADMIN_PASSWORD === DEV_ADMIN_PASSWORD)) {
+    throw new Error('Set ADMIN_PASSWORD (not the development default) to seed outside development');
+  }
+
   const { rows } = await pool.query(
     `INSERT INTO facilities (id, name, address) VALUES (1, 'ParkIt Residency', 'New Delhi')
      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
   );
   const facilityId = rows[0].id;
+  // An explicit id does not advance the SERIAL sequence; move it past the seeded row so the next
+  // plain INSERT does not collide with id 1.
+  await pool.query(
+    `SELECT setval(pg_get_serial_sequence('facilities', 'id'), (SELECT max(id) FROM facilities))`,
+  );
 
   const slots = [
     ['A-01', 'car', 40, 300],
