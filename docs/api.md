@@ -91,6 +91,8 @@ from "API down".
 Body: `{ "name": string 1-100, "email": email, "phone"?: string 10-15 digits, "password": string, 8 characters to 72 bytes (bcrypt's limit, measured with `Buffer.byteLength`) }`.
 Always creates a `customer`; any `role` in the body is ignored. Email is lowercased.
 `201 { "token": "<jwt>", "user": User }`. Errors: 400 validation, 409 email already registered, 429 (D20).
+When SNS is configured, the email is then subscribed to booking emails (AWS sends a confirmation
+link first, D21).
 
 ### `POST /api/auth/login` (none)
 Body: `{ "email", "password" }`. `200 { "token", "user": User }`. Errors: 400, 401
@@ -135,6 +137,15 @@ Lists every **unblocked** slot (D12) with whether it is free for the whole range
 ```
 Errors: 400 for any rule in D2, D6, D7.
 
+## Client config
+
+### `GET /api/config` (none)
+What the frontend needs to know about the deployment. `email_notifications` is true when an SNS
+topic is configured (D21).
+```json
+{ "email_notifications": true }
+```
+
 ## Bookings (customer)
 
 ### `POST /api/bookings` (customer)
@@ -152,6 +163,7 @@ Body:
 `201` Booking. Errors: 400 rules (D2, D6, D7, D9) or slot/type mismatch; 401; 403 (admin token);
 404 unknown `slot_id`; 409 slot taken, vehicle already booked at that time (D17), slot blocked,
 no free slot of that type, or 3 active bookings already (D20).
+After a 201, a confirmation email is published through SNS when configured (D21).
 
 ### `GET /api/bookings/mine` (customer)
 Query: `scope=active|past` (default `active`). `active` = `confirmed` with `ends_at > now`, plus
@@ -165,7 +177,8 @@ else, newest first.
 ### `POST /api/bookings/:code/cancel` (owner or admin)
 Customer: allowed while `confirmed` and now ≤ `starts_at` − 2 h. Admin: allowed while `confirmed`
 and now < `ends_at`, so a missed booking keeps its payment (D8, D11). Sets `status = cancelled`,
-`cancelled_at`, payment `status = refunded`, `refunded_at`.
+`cancelled_at`, payment `status = refunded`, `refunded_at`. When SNS is configured, a cancellation
+email is published after the response (D21).
 `200` Booking (with `customer` when the caller is an admin). Errors: 401; 404 (unknown or not the owner); 409 `"Bookings can be cancelled until 2 hours before the start"`,
 booking missed, or not `confirmed`.
 
@@ -244,6 +257,7 @@ path traversal. Knowing a booking code does not reveal its file (D19). On AWS th
 | GET | `/api/facility` | none | C2 |
 | PATCH | `/api/admin/facility` | admin | A3 |
 | GET | `/api/slots/availability` | none | C2 |
+| GET | `/api/config` | none | C1 |
 | POST | `/api/bookings` | customer | C3 |
 | GET | `/api/bookings/mine` | customer | C4 |
 | GET | `/api/bookings/:code` | owner or admin | C4, C6 |

@@ -16,6 +16,7 @@ function qs(params) {
 // Health and facility
 export const health = (opts) => api('/health', opts);
 export const getFacility = (opts) => api('/facility', opts);
+export const getConfig = (opts) => api('/config', opts); // -> { email_notifications }
 export const updateFacility = (fields, opts) =>
   api('/admin/facility', { ...opts, method: 'PATCH', body: fields });
 

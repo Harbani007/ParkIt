@@ -16,6 +16,7 @@ It runs on **AWS**, built by one **CloudFormation** template in the AWS Academy 
 | **RDS (PostgreSQL)** | A database that AWS manages for us | Stores users, slots, bookings, payments |
 | **S3** | Online file storage | Stores the QR code images |
 | **CloudFormation** | Infrastructure as Code: one file describes all the resources | Builds EC2, RDS, S3 and the firewalls in one click |
+| **SNS** (optional) | Simple Notification Service: publish a message once, AWS delivers it to subscribers | Booking confirmation and cancellation emails |
 
 Supporting pieces you may be asked about:
 - **Security groups** are firewalls. The website allows port 80 from anyone. The database allows port
@@ -32,6 +33,25 @@ Supporting pieces you may be asked about:
 4. The API reads and writes **RDS**.
 5. When a booking is made, the API creates a QR image, saves it in **S3**, and returns a temporary
    (pre-signed) link to it.
+6. After answering, the API publishes a message to **SNS**, which emails the customer.
+
+## 3a. Booking emails with SNS (how it works)
+
+- One SNS **topic** (`parkit-bookings`) is created by the CloudFormation template.
+- When a customer registers, the API **subscribes** their email to the topic with a **filter
+  policy** `{"email": ["their@email"]}`. AWS sends them a confirmation email first (so nobody can
+  be spammed without agreeing).
+- When a booking is confirmed or cancelled, the API **publishes** one message with a message
+  attribute `email = their@email`. SNS compares it with every filter policy and delivers it only to
+  that customer. The owner's subscription has no filter, so the owner gets a copy of everything.
+- It is **best effort**: emails are sent after the booking is saved, and if SNS fails the booking
+  still succeeds (the error is only logged).
+- Permission comes from the same IAM role (`LabRole`): still **no keys**.
+- **Why SNS and not SES?** SES (Simple Email Service) sends fully custom emails but, in a new
+  account, only to verified addresses (SES "sandbox mode"). SNS is simpler: one topic, AWS handles
+  delivery and the opt-in. SES would be the step up for branded HTML emails.
+- This is the **publish/subscribe** pattern: the API does not know who receives the message; it
+  publishes once, and SNS fans it out. That decoupling is a core cloud idea.
 
 ## 4. "Why X and not Y?"
 
@@ -80,6 +100,7 @@ The template writes these on the server. Know the first four:
 | `S3_ASSETS_BUCKET` | Name of the S3 bucket for QR images |
 | `AWS_REGION` | `us-east-1` |
 | `STORAGE_DRIVER` | `s3` on AWS, `local` on a laptop |
+| `SNS_TOPIC_ARN` | The SNS topic for booking emails (empty = no emails) |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | First admin account (password typed into the template, not stored in Git) |
 
 ## 7. Security points (short)
@@ -98,6 +119,7 @@ The template writes these on the server. Know the first four:
 - **"Any free slot":** the server picks the least-used free slot (simple load balancing).
 - **Simulated payment** and refund on cancellation (until 2 hours before start).
 - **Admin dashboard:** revenue and occupancy, check-in/check-out by booking code.
+- **Booking emails** through Amazon SNS (publish/subscribe, filter policies).
 - **Tests:** about 200 backend tests and about 90 frontend tests, run automatically on GitHub Actions
   (CI) on every push.
 

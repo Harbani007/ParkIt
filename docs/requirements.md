@@ -12,7 +12,8 @@ or reserve them, and the owner has no way to offer them, track who is parked, or
 **Solution.** ParkIt is a cloud-hosted web application for one privately managed parking
 facility. Customers check availability for a date and duration, see the price, reserve a slot and
 receive a QR booking code. The owner (admin) manages slots, rates and opening hours, checks
-vehicles in and out by booking code, and sees occupancy and revenue. Payment is simulated.
+vehicles in and out by booking code, and sees occupancy and revenue. Payment is simulated. Booking
+confirmation and cancellation emails go through Amazon SNS when a topic is configured (D21).
 
 **Objectives**
 1. Let a customer find, price and reserve a parking slot online in under a minute, from any device.
@@ -142,6 +143,7 @@ per-day breakdown.
 | D18 | If the customer picks "any free slot", the server ranks the free unblocked slots of that type by the number of non-cancelled bookings whose `starts_at` is in the last 30 days (fewest first, tie: lowest code) and books the first. If another request takes that slot at the same moment, it tries the next one; only when none is left does it answer 409 "no free slot". This spreads use evenly across slots. |
 | D19 | The QR encodes only the booking code. Booking details go only to the owner or an admin (anyone else gets 404, the same as an unknown code). QR files are stored under `qr/<32 hex chars>.png` (128 random bits); the file route serves only keys of exactly that form. |
 | D20 | Fair use: a customer may hold at most 3 active (`confirmed`, not ended) bookings at a time (409 beyond that), and sign-in and registration are rate-limited per IP (10 per minute, 429). Payments are simulated, so this stops one account locking up every slot or someone else's number plate. |
+| D21 | Booking emails (optional, Amazon SNS). With `SNS_TOPIC_ARN` set, registering subscribes the customer's email to the topic with a filter policy on their own address; AWS first sends them a subscription confirmation email. Once they confirm, they get an email when a booking is confirmed or cancelled: each message carries an `email` attribute, so SNS delivers it only to that customer. An owner email subscribed without a filter receives every message. Sending is best effort: it happens after the response is sent, and an SNS failure never fails a registration or booking. With no topic set, nothing is sent. |
 
 **Booking states**
 

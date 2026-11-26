@@ -19,12 +19,16 @@ flowchart LR
     end
     S3[("S3 bucket<br/>QR images, private, encrypted")]
     ROLE["IAM: LabInstanceProfile (LabRole)<br/>no access keys"]
+    SNS["SNS topic parkit-bookings<br/>optional, filter policy per customer"]
   end
+  MAIL[Customer and owner inboxes]
 
   EC2 -- "SQL over TLS" --> RDS
   EC2 -- "PutObject / pre-signed GET" --> S3
   ROLE -. "temporary credentials" .- EC2
   U -. "QR image via pre-signed URL" .-> S3
+  EC2 -. "Subscribe on register / Publish on book and cancel" .-> SNS
+  SNS -. "email" .-> MAIL
 ```
 
 | Need | Sandbox service | Why |
@@ -34,6 +38,7 @@ flowchart LR
 | Store QR images | S3 (private) | Durable object storage, shared through 15-minute pre-signed links |
 | Create it all repeatably | CloudFormation (IaC) | The sandbox is wiped every session; one template rebuilds it identically |
 | Permissions without keys | IAM role via `LabInstanceProfile` | The AWS SDK gets temporary credentials from the instance |
+| Booking emails (optional) | SNS topic, email subscriptions with filter policies | Publish/subscribe: the API publishes once, SNS delivers only to the matching customer (D21) |
 
 Known limitations of the sandbox demo: HTTP only (no domain or certificate), one EC2 instance and a
 single-AZ database (the sandbox does not allow Multi-AZ).

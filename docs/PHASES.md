@@ -105,7 +105,8 @@ documented in `docs/architecture.md` as the next step.
 - [ ] S3 lifecycle rule expiring QR files of finished bookings
 - [ ] CloudWatch dashboard (EC2 CPU, RDS connections, CloudFront 5xx) and alarms, with screenshots
       for the report
-- [ ] Optional: SNS topic for booking confirmation notifications
+- [x] Optional: SNS topic for booking confirmation notifications (built into the sandbox template
+      as `BookingEmails = yes`; customer subscriptions use filter policies, D21)
 - [ ] Deploy scripts in `infra/` and a GitHub Actions deploy workflow
 - [ ] Billing alarm set before anything else is created
 - [ ] Final architecture diagram in `docs/architecture.md`

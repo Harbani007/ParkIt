@@ -7,6 +7,7 @@ import { HttpError } from '../middleware/errors.js';
 import { signToken, requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rateLimit.js';
+import { subscribeCustomer } from '../services/notify.js';
 
 const email = z
   .string()
@@ -47,6 +48,7 @@ export function createAuthRouter({ max = config.authRateLimitMax, windowMs = 60_
         [name, addr, phone ?? null, hash],
       );
       res.status(201).json({ token: signToken(rows[0]), user: publicUser(rows[0]) });
+      subscribeCustomer(rows[0].email); // booking emails (D21); AWS asks the customer to confirm first
     } catch (err) {
       next(err);
     }
