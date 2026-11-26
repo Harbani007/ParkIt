@@ -31,7 +31,7 @@ D1..D20 are in `docs/requirements.md`.
 | 409 | Conflict: slot already booked, vehicle already booked at that time (D17), slot blocked, no free slot (D18), 3 active bookings already (D20), duplicate email or slot code, state change not allowed (cancel too late, check-in outside window, booking missed), deleting a booked slot |
 | 429 | Too many sign-in or registration attempts from one IP (D20) |
 
-**Database errors the API maps.** `23P01` on constraint `bookings_no_slot_overlap` → 409 "This slot was just booked for that time"; `23P01` on `bookings_no_vehicle_overlap` → 409 "This vehicle already has a booking at that time"; `23505` (unique) → 409 naming the duplicate field. Branch on `err.constraint`, never on the message text.
+**Database errors the API maps.** `23P01` on constraint `bookings_no_slot_overlap` → 409 "This slot was just booked for that time"; `23P01` on `bookings_no_vehicle_overlap` → 409 "This vehicle already has a booking at that time"; `23505` (unique) → 409 naming the duplicate field. Branch on `err.constraint`, never on the message text. Two simultaneous inserts on the same slot can also make Postgres report a deadlock (`40P01`), because an exclusion constraint writes its index entry before checking; the booking service treats that as a lost race and retries, so the client still gets the normal slot 409 (or, after 3 retries, 409 "Slot is busy, please try again").
 
 ### Shared objects
 

@@ -137,11 +137,13 @@ describe('app wiring', () => {
   });
 
   it('returns JSON 404 under the public mounts', async () => {
-    for (const path of ['/api/auth/x', '/api/facility/x', '/api/slots/x', '/api/bookings/x', '/api/files/x']) {
+    for (const path of ['/api/auth/x', '/api/facility/x', '/api/slots/x', '/api/files/x']) {
       const res = await request(app).get(path);
       expect(res.status, path).toBe(404);
       expect(res.body.error).toMatch(/Not found/);
     }
+    // Bookings are not public: a booking code needs a token (401).
+    expect((await request(app).get('/api/bookings/x')).status).toBe(401);
   });
 
   it('guards every /api/admin path: 401 without a token, 403 for a customer', async () => {
