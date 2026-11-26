@@ -92,6 +92,8 @@ describe.skipIf(!dbUp)('admin bookings', () => {
       });
       expect(res.body.bookings[1].status).toBe('confirmed');
       expect(res.body.bookings[1].can_cancel).toBe(true);
+      expect(res.body.bookings[0].can_cancel).toBe(false); // cancelled
+      expect(JSON.stringify(res.body)).not.toMatch(/password/);
 
       const filtered = await get(admin, `?date=${date}&status=cancelled`);
       expect(filtered.body.bookings.map((b) => b.booking_code)).toEqual([early.booking_code]);
@@ -107,6 +109,17 @@ describe.skipIf(!dbUp)('admin bookings', () => {
       expect(res.body.bookings.every((b) => b.status === 'missed')).toBe(true);
       const confirmed = await get(admin, `?date=${date}&status=confirmed`);
       expect(confirmed.body.bookings.map((b) => b.booking_code)).not.toContain(missed.booking_code);
+    });
+
+    it('can_cancel for an admin follows D8: true until ends_at, false once ended', async () => {
+      const now = Date.now();
+      const running = await row(now - 1 * H, now + 1 * H);
+      const ended = await row(now - 3 * H, now - 1 * H);
+      const res = await get(admin, `?date=${istDate(now - 3 * H)}`);
+      const find = (b) => res.body.bookings.find((x) => x.booking_code === b.booking_code);
+      expect(find(ended).can_cancel).toBe(false);
+      const res2 = await get(admin, `?date=${istDate(now - 1 * H)}`);
+      expect(res2.body.bookings.find((x) => x.booking_code === running.booking_code).can_cancel).toBe(true);
     });
 
     it('flags an overstaying checked-in booking in the list', async () => {
@@ -143,6 +156,18 @@ describe.skipIf(!dbUp)('admin bookings', () => {
       });
       const running = await row(now - 1 * H, now + 1 * H);
       expect((await act(admin, running.booking_code, 'check-in')).status).toBe(200);
+    });
+
+    it('includes the customer (never password_hash); the customer GET of the same booking does not', async () => {
+      const now = Date.now();
+      const b = await row(now - 1 * H, now + 1 * H);
+      const res = await act(admin, b.booking_code, 'check-in');
+      expect(res.body.customer).toEqual({ name: 'Asha Verma', email: customer.user.email, phone: '9876543210' });
+      expect(JSON.stringify(res.body)).not.toMatch(/password/);
+      const own = await request(app).get(`/api/bookings/${b.booking_code}`).set(as(customer));
+      expect(own.body).not.toHaveProperty('customer');
+      const single = await request(app).get(`/api/bookings/${b.booking_code}`).set(as(admin));
+      expect(single.body.customer.name).toBe('Asha Verma');
     });
 
     it('409 too early at start - 20 min, with the api.md message', async () => {
@@ -191,6 +216,14 @@ describe.skipIf(!dbUp)('admin bookings', () => {
       expect(res.body).toMatchObject({
         status: 'completed', overstayed: false, checked_out_at: expect.stringMatching(/Z$/),
       });
+    });
+
+    it('includes the customer', async () => {
+      const now = Date.now();
+      const b = await row(now - H, now + H, { status: 'checked_in', checkedInAt: new Date(now - H) });
+      const res = await act(admin, b.booking_code, 'check-out');
+      expect(res.body.customer).toEqual({ name: 'Asha Verma', email: customer.user.email, phone: '9876543210' });
+      expect(JSON.stringify(res.body)).not.toMatch(/password/);
     });
 
     it('overstayed true when checking out after ends_at', async () => {

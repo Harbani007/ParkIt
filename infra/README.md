@@ -1,5 +1,16 @@
 # infra
 
+## Sandbox deployment (what we demo)
+
+- `parkit-sandbox.yaml`: one CloudFormation template for the AWS Academy Cloud Foundations
+  Sandbox (us-east-1): EC2 + Nginx + Node API, RDS PostgreSQL, private S3 bucket.
+- `SANDBOX-DEPLOY.md`: beginner step-by-step guide, demo script and troubleshooting.
+
+The sandbox is wiped after each 3-hour session, so redeploy before the viva.
+`smoke-deploy.md` is the longer, production-style design (CloudFront, IAM role, etc.).
+
+## Production-style plan
+
 AWS deployment lives here (Phase 4). Planned contents:
 
 - `ec2-setup.sh`: installs Node.js, PM2 and Nginx on a fresh Amazon Linux instance

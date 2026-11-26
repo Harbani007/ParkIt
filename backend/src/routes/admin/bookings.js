@@ -27,11 +27,11 @@ adminBookingsRouter.get('/', validate({ query: listQuery }), async (req, res) =>
 adminBookingsRouter.post('/:code/check-in', async (req, res) => {
   const now = new Date();
   const row = await checkInBooking({ code: req.params.code, now });
-  res.json(await toBookingJson(row, { viewer: req.user, now }));
+  res.json(await toBookingJson(row, { viewer: req.user, now, includeCustomer: true }));
 });
 
 adminBookingsRouter.post('/:code/check-out', async (req, res) => {
   const now = new Date();
   const row = await checkOutBooking({ code: req.params.code, now });
-  res.json(await toBookingJson(row, { viewer: req.user, now }));
+  res.json(await toBookingJson(row, { viewer: req.user, now, includeCustomer: true }));
 });

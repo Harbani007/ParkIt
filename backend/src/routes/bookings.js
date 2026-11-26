@@ -54,11 +54,11 @@ bookingsRouter.get('/mine', requireAuth, requireRole('customer'), validate({ que
 bookingsRouter.get('/:code', requireAuth, async (req, res) => {
   const now = new Date();
   const row = await getBookingFor(req.params.code, req.user);
-  res.json(await toBookingJson(row, { viewer: req.user, now }));
+  res.json(await toBookingJson(row, { viewer: req.user, now, includeCustomer: req.user.role === 'admin' }));
 });
 
 bookingsRouter.post('/:code/cancel', requireAuth, async (req, res) => {
   const now = new Date();
   const row = await cancelBooking({ code: req.params.code, viewer: req.user, now });
-  res.json(await toBookingJson(row, { viewer: req.user, now }));
+  res.json(await toBookingJson(row, { viewer: req.user, now, includeCustomer: req.user.role === 'admin' }));
 });

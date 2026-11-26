@@ -300,6 +300,34 @@ describe.skipIf(!dbUp)('bookings (customer)', () => {
       expect(byAdmin.body).toMatchObject({ status: 'cancelled', payment: { status: 'refunded' } });
     });
 
+    it('customer details: admin sees them on GET and cancel, the owner never does; no password_hash', async () => {
+      const u = await createUser({ name: 'Ravi Kumar' });
+      const now = Date.now();
+      const b = await row(u, await slot(), now + 5 * H, now + 6 * H);
+      const mine = await request(app).get(`/api/bookings/${b.booking_code}`).set(as(u));
+      expect(mine.status).toBe(200);
+      expect(mine.body).not.toHaveProperty('customer');
+      const viewed = await request(app).get(`/api/bookings/${b.booking_code}`).set(as(admin));
+      expect(viewed.body.customer).toEqual({ name: 'Ravi Kumar', email: u.user.email, phone: null });
+      expect(JSON.stringify(viewed.body)).not.toMatch(/password/);
+      const cancelled = await cancel(admin, b.booking_code);
+      expect(cancelled.body.customer).toMatchObject({ name: 'Ravi Kumar', email: u.user.email });
+      expect(JSON.stringify(cancelled.body)).not.toMatch(/password/);
+      const own = await row(u, await slot(), now + 5 * H, now + 6 * H);
+      expect(await cancel(u, own.booking_code)).toMatchObject({ status: 200 });
+      expect((await cancel(u, own.booking_code)).body).not.toHaveProperty('customer');
+    });
+
+    it('admin can_cancel follows D8: true while confirmed and before ends_at, false once ended', async () => {
+      const u = await createUser();
+      const now = Date.now();
+      const running = await row(u, await slot(), now - 1 * H, now + 1 * H);
+      const ended = await row(u, await slot(), now - 3 * H, now - 1 * H);
+      const view = (b) => request(app).get(`/api/bookings/${b.booking_code}`).set(as(admin));
+      expect((await view(running)).body.can_cancel).toBe(true);
+      expect((await view(ended)).body.can_cancel).toBe(false);
+    });
+
     it('customer: allowed just outside the 2 hour limit', async () => {
       const u = await createUser();
       const now = Date.now();

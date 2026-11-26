@@ -70,6 +70,8 @@ D1..D20 are in `docs/requirements.md`.
 - `status` is one of `confirmed`, `checked_in`, `completed`, `cancelled`, or the derived `missed`
   (a `confirmed` booking with `ends_at ≤ now`, D11).
 - `can_cancel` is true when the caller may cancel it now (D8).
+- `customer` (`{ "name", "email", "phone" }`) is added only when the caller is an admin: on the admin
+  booking list, `GET /api/bookings/:code`, cancel, check-in and check-out. Customers never receive it.
 - `overstayed` is true when `checked_out_at > ends_at`, or when still `checked_in` after `ends_at`.
 - `qr_url` is a path served by `GET /api/files/*` with the local storage driver, or a pre-signed S3
   URL valid for 15 minutes on AWS. Null for cancelled bookings.
@@ -158,13 +160,13 @@ else, newest first.
 `200 { "bookings": [Booking, ...] }`.
 
 ### `GET /api/bookings/:code` (owner or admin)
-`200` Booking. Errors: 401; 404 unknown code **or** not the owner (D19).
+`200` Booking; for an admin caller it also includes `customer`. Errors: 401; 404 unknown code **or** not the owner (D19).
 
 ### `POST /api/bookings/:code/cancel` (owner or admin)
 Customer: allowed while `confirmed` and now ≤ `starts_at` − 2 h. Admin: allowed while `confirmed`
 and now < `ends_at`, so a missed booking keeps its payment (D8, D11). Sets `status = cancelled`,
 `cancelled_at`, payment `status = refunded`, `refunded_at`.
-`200` Booking. Errors: 401; 404 (unknown or not the owner); 409 `"Bookings can be cancelled until 2 hours before the start"`,
+`200` Booking (with `customer` when the caller is an admin). Errors: 401; 404 (unknown or not the owner); 409 `"Bookings can be cancelled until 2 hours before the start"`,
 booking missed, or not `confirmed`.
 
 ## Admin
@@ -194,14 +196,14 @@ Bookings starting on that date, ordered by `starts_at`:
 
 ### `POST /api/admin/bookings/:code/check-in` (admin)
 Allowed when `confirmed` and `starts_at − 15 min ≤ now < ends_at` (D10). Sets `checked_in`,
-`checked_in_at`. `200` Booking. Errors: 404; 409 `"Too early: check-in opens 15 minutes before the start"`,
+`checked_in_at`. `200` Booking & `customer`. Errors: 404; 409 `"Too early: check-in opens 15 minutes before the start"`,
 booking missed, or not `confirmed`.
 
 ### `POST /api/admin/bookings/:code/check-out` (admin)
 Allowed when `checked_in`. Sets `completed`, `checked_out_at`; `overstayed` reflects D10.
 The slot is reserved only until `ends_at`, so an overstaying car does not block the next booking;
 the admin booking list highlights overstays (known limitation, D10).
-`200` Booking. Errors: 404; 409 not `checked_in`.
+`200` Booking & `customer`. Errors: 404; 409 not `checked_in`.
 
 ### `GET /api/admin/summary` (admin)
 Query: `from`, `to` (IST dates, inclusive, `to ≥ from`, at most 366 days). Definitions in D15.
