@@ -97,15 +97,15 @@ export async function listMine({ userId, scope, now }) {
   return rows;
 }
 
-/** Bookings starting on an IST date, optionally filtered by (derived) status. */
+/** Bookings starting on an IST date, optionally filtered by (derived) status. facilityId null = every space. */
 export async function listForDay({ date, status, now, facilityId }) {
   const from = istToUtc(date, '00:00');
   const to = istToUtc(addDays(date, 1), '00:00');
   const { rows } = await pool.query(
     `${BOOKING_SELECT}
-      WHERE s.facility_id = $1 AND b.starts_at >= $2 AND b.starts_at < $3
+      WHERE ($1::int IS NULL OR s.facility_id = $1) AND b.starts_at >= $2 AND b.starts_at < $3
       ORDER BY b.starts_at, b.id`,
-    [facilityId, from, to],
+    [facilityId ?? null, from, to],
   );
   return status ? rows.filter((r) => deriveStatus(r, now) === status) : rows;
 }

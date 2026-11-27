@@ -70,10 +70,14 @@ export const updateSlot = (id, fields, opts) =>
   api(m(`/slots/${enc(id)}`), { ...opts, method: 'PATCH', body: fields });
 export const deleteSlot = (id, opts) => api(m(`/slots/${enc(id)}`), { ...opts, method: 'DELETE' }); // -> null
 
+// The admin's dashboard is platform-wide (space_id=all); a host's is their one space.
+const dashScope = () => (scope.base === '/admin' ? { space_id: 'all' } : {});
+const mAll = (path, params = {}) =>
+  scope.base === '/admin' ? `${scope.base}${path}${qs({ ...params, ...dashScope() })}` : m(path, params);
 export const adminBookings = (date, status, opts) =>
-  api(m('/bookings', { date, status }), opts); // -> { date, bookings }
+  api(mAll('/bookings', { date, status }), opts); // -> { date, bookings }
 export const manageBooking = (code, opts) => api(m(`/bookings/${enc(code)}`), opts);
 export const checkIn = (code, opts) => api(m(`/bookings/${enc(code)}/check-in`), { ...opts, method: 'POST' });
 export const checkOut = (code, opts) => api(m(`/bookings/${enc(code)}/check-out`), { ...opts, method: 'POST' });
 export const manageCancel = (code, opts) => api(m(`/bookings/${enc(code)}/cancel`), { ...opts, method: 'POST' });
-export const summary = (from, to, opts) => api(m('/summary', { from, to }), opts);
+export const summary = (from, to, opts) => api(mAll('/summary', { from, to }), opts);

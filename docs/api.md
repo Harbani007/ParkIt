@@ -168,6 +168,9 @@ Every management route below exists twice with the same body and response: under
 owned → 404). Host versions: `GET/POST/PATCH/DELETE /api/host/slots`, `GET /api/host/bookings`,
 `GET /api/host/bookings/:code`, `POST /api/host/bookings/:code/check-in|check-out|cancel`,
 `GET /api/host/summary`, `GET/PATCH /api/host/facility`. A booking code at another space → 404.
+The admin may pass `space_id=all` to `GET /api/admin/summary` and `GET /api/admin/bookings`: the
+platform-wide view over every space (revenue, counts, occupancy against all spaces' capacity, and every
+booking of the day, each carrying its `space`).
 
 ## Client config
 

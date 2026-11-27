@@ -180,4 +180,28 @@ describe.skipIf(!dbUp)('marketplace', () => {
     expect(cancelled.status).toBe(200);
     expect(cancelled.body.status).toBe('cancelled');
   });
+
+  it('the admin sees every space with space_id=all; the default view stays on facility 1; hosts cannot use all', async () => {
+    const starts = istIso(4, '11:00');
+    const day = new Date(Date.parse(starts) + 330 * 60000).toISOString().slice(0, 10);
+    const res = await request(app).post('/api/bookings').set(as(driver))
+      .send({ space_id: space.id, vehicle_type: 'car', starts_at: starts, hours: 2, vehicle_number: plate() });
+    expect(res.status).toBe(201);
+    const code = res.body.booking_code;
+
+    const all = await request(app).get('/api/admin/bookings').query({ space_id: 'all', date: day }).set(as(admin));
+    expect(all.status).toBe(200);
+    const mine = all.body.bookings.find((b) => b.booking_code === code);
+    expect(mine.space).toMatchObject({ id: space.id, name: space.name, locality });
+    const own = await request(app).get('/api/admin/bookings').query({ date: day }).set(as(admin));
+    expect(own.body.bookings.map((b) => b.booking_code)).not.toContain(code);
+
+    const sumAll = await request(app).get('/api/admin/summary').query({ space_id: 'all', from: day, to: day }).set(as(admin));
+    const sumOne = await request(app).get('/api/admin/summary').query({ from: day, to: day }).set(as(admin));
+    expect(sumAll.status).toBe(200);
+    expect(Number(sumAll.body.revenue) - Number(sumOne.body.revenue)).toBeGreaterThanOrEqual(60);
+    expect(sumAll.body.counts.upcoming).toBeGreaterThan(sumOne.body.counts.upcoming);
+
+    expect((await request(app).get('/api/host/bookings').query({ space_id: 'all', date: day }).set(as(host))).status).toBe(400);
+  });
 });
