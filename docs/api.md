@@ -36,6 +36,10 @@ D1..D20 are in `docs/requirements.md`.
 
 ### Shared objects
 
+Every Booking also carries `space: { id, name, locality, city, address }` (D22): where it is. Only
+the booking's customer, the space's host and the admin can read a booking, so the address is safe
+there (D23).
+
 **User**
 ```json
 { "id": 7, "name": "Asha Verma", "email": "asha@example.com", "phone": "9876543210", "role": "customer" }
@@ -121,7 +125,7 @@ first facility" by itself.
 ## Slots and availability
 
 ### `GET /api/slots/availability` (none)
-Query: `starts_at` (ISO 8601, required), `hours` (integer ≥ 1, required), `vehicle_type`
+Query: `space_id` (optional, default facility 1), `starts_at` (ISO 8601, required), `hours` (integer ≥ 1, required), `vehicle_type`
 (`car` or `bike`, optional: both when omitted).
 Lists every **unblocked** slot (D12) with whether it is free for the whole range and its price (D5, D16).
 ```json
@@ -136,6 +140,34 @@ Lists every **unblocked** slot (D12) with whether it is free for the whole range
 }
 ```
 Errors: 400 for any rule in D2, D6, D7.
+
+## Spaces (marketplace, D22-D24)
+
+**Space** (public): `{ "id": 7, "name": "Sharma house driveway", "locality": "Lajpat Nagar", "city": "New Delhi", "opens_at": "08:00", "closes_at": "19:00", "timezone": "Asia/Kolkata", "max_advance_days": 30, "slot_count": 1, "vehicle_types": ["car"], "from_hourly_rate": "30.00" }`. No `address` (D23).
+
+### `GET /api/spaces` (none)
+Query: `q` (optional, matched case-insensitively against locality, city and name), `vehicle_type`
+(optional). Lists listed spaces that have at least one unblocked slot, sorted by locality then name.
+`200 { "spaces": [Space, ...] }`.
+
+### `GET /api/spaces/:id` (none)
+`200` Space. Errors: 404 unknown or unlisted.
+
+### `POST /api/host/spaces` (customer)
+Body: `{ "name", "address", "locality", "city"?, "opens_at", "closes_at", "vehicle_type": "car"|"bike", "slots": 1-10, "hourly_rate", "daily_rate" }`.
+Creates the space owned by the caller and its slots (`P1`, `P2`, ...). `201` HostSpace
+(Space plus `address`). Errors: 400 validation (times as `PATCH /api/admin/facility`).
+
+### `GET /api/host/spaces` (customer)
+The caller's spaces. `200 { "spaces": [HostSpace, ...] }`.
+
+### Managing a space: `/api/admin/*` and `/api/host/*`
+Every management route below exists twice with the same body and response: under `/api/admin`
+(admin; `space_id` optional, default facility 1 for lists, any space for a booking code) and under
+`/api/host` (customer who owns the space; `space_id` required in the query string, else 400; not
+owned → 404). Host versions: `GET/POST/PATCH/DELETE /api/host/slots`, `GET /api/host/bookings`,
+`GET /api/host/bookings/:code`, `POST /api/host/bookings/:code/check-in|check-out|cancel`,
+`GET /api/host/summary`, `GET/PATCH /api/host/facility`. A booking code at another space → 404.
 
 ## Client config
 
@@ -153,6 +185,7 @@ Body:
 ```json
 { "slot_id": 1, "vehicle_type": "car", "starts_at": "2026-12-01T10:00:00+05:30", "hours": 3, "vehicle_number": "DL 3C AB 1234" }
 ```
+- `space_id` optional (default facility 1): the space to book at. A host booking their own space → 409 (D24).
 - `slot_id` optional. Without it the server picks a free slot of `vehicle_type` by D18. With it,
   `vehicle_type` must match the slot's type or be omitted.
 - Creates the booking (`confirmed`), its simulated payment (`paid`) and its QR image in one

@@ -2,13 +2,15 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db/pool.js';
 import { validate } from '../middleware/validate.js';
+import { HttpError } from '../middleware/errors.js';
 import { checkBookingWindow } from '../lib/rules.js';
 import { priceFor } from '../lib/pricing.js';
-import { facilityId, getFacility } from '../services/facility.js';
+import { getFacility } from '../services/facility.js';
 
 export const slotsRouter = Router();
 
 const availabilityQuery = z.object({
+  space_id: z.string().regex(/^\d{1,9}$/, 'space_id must be a positive integer').transform(Number).optional(),
   starts_at: z.string().datetime({ offset: true, message: 'Must be an ISO 8601 time with an offset' }),
   hours: z.string().regex(/^\d{1,3}$/, 'Must be a whole number of hours').transform(Number),
   vehicle_type: z.enum(['car', 'bike']).optional(),
@@ -16,7 +18,8 @@ const availabilityQuery = z.object({
 
 slotsRouter.get('/availability', validate({ query: availabilityQuery }), async (req, res) => {
   const q = req.valid.query;
-  const facility = await getFacility();
+  const facility = await getFacility(q.space_id);
+  if (!facility.is_listed && q.space_id !== undefined) throw new HttpError(404, 'Space not found');
   const { startsAt, endsAt } = checkBookingWindow({
     startsAt: q.starts_at,
     hours: q.hours,
@@ -35,7 +38,7 @@ slotsRouter.get('/availability', validate({ query: availabilityQuery }), async (
       WHERE s.facility_id = $1 AND NOT s.is_blocked
         AND ($4::text IS NULL OR s.vehicle_type = $4::text)
       ORDER BY s.code`,
-    [facilityId(), startsAt, endsAt, q.vehicle_type ?? null],
+    [facility.id, startsAt, endsAt, q.vehicle_type ?? null],
   );
   res.json({
     starts_at: startsAt.toISOString(),

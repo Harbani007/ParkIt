@@ -70,6 +70,26 @@ const PATHS = {
     </>
   ),
   cross: <path d="M7 7l10 10M17 7 7 17" />,
+  search: (
+    <>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m16 16 4.5 4.5" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z" />
+      <circle cx="12" cy="10" r="2.3" />
+    </>
+  ),
+  home: (
+    <>
+      <path d="M4 11.5 12 5l8 6.5" />
+      <path d="M6.5 10v9.5h11V10" />
+      <path d="M10 19.5v-5h4v5" />
+    </>
+  ),
+  plus: <path d="M12 5v14M5 12h14" />,
 };
 
 export default function Icon({ name, size = 20, className = '' }) {

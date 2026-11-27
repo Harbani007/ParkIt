@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getBooking, checkIn, checkOut } from '../../api/parkit.js';
+import { manageBooking as getBooking, checkIn, checkOut } from '../../api/parkit.js';
 import PageHeader from '../../components/PageHeader.jsx';
 import Alert from '../../components/Alert.jsx';
 import Spinner from '../../components/Spinner.jsx';

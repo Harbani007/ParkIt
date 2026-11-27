@@ -5,14 +5,16 @@ change this file first. Decision numbers (D1..D20) match `docs/phases/phase-1.md
 
 ## 1. Proposal
 
-**Problem.** At a private residential property in Delhi, parking capacity exceeds the number of
-resident vehicles, so some spaces stay empty for long periods. Drivers nearby have no way to find
-or reserve them, and the owner has no way to offer them, track who is parked, or earn from them.
+**Problem.** Across Delhi, home parking spaces sit empty for hours: a resident drives to the
+office and the spot outside their house is unused until evening. Meanwhile a driver coming from
+Noida for a meeting in Lajpat Nagar has no way to know those spaces exist. Owners cannot offer
+them, and drivers cannot find or reserve them.
 
-**Solution.** ParkIt is a cloud-hosted web application for one privately managed parking
-facility. Customers check availability for a date and duration, see the price, reserve a slot and
-receive a QR booking code. The owner (admin) manages slots, rates and opening hours, checks
-vehicles in and out by booking code, and sees occupancy and revenue. Payment is simulated. Booking
+**Solution.** ParkIt is a cloud-hosted marketplace for private parking spaces. Any registered
+user can list their space as a **host**: house address, locality, the hours it is free and the
+rates. Drivers search by locality, see the spaces and prices, reserve a slot and receive a QR
+booking code. Each host manages their own spaces, checks vehicles in and out by booking code, and
+sees their bookings and earnings. The platform **admin** can see and manage every space. Payment is simulated. Booking
 confirmation and cancellation emails go through Amazon SNS when a topic is configured (D21).
 
 **Objectives**
@@ -143,6 +145,9 @@ per-day breakdown.
 | D18 | If the customer picks "any free slot", the server ranks the free unblocked slots of that type by the number of non-cancelled bookings whose `starts_at` is in the last 30 days (fewest first, tie: lowest code) and books the first. If another request takes that slot at the same moment, it tries the next one; only when none is left does it answer 409 "no free slot". This spreads use evenly across slots. |
 | D19 | The QR encodes only the booking code. Booking details go only to the owner or an admin (anyone else gets 404, the same as an unknown code). QR files are stored under `qr/<32 hex chars>.png` (128 random bits); the file route serves only keys of exactly that form. |
 | D20 | Fair use: a customer may hold at most 3 active (`confirmed`, not ended) bookings at a time (409 beyond that), and sign-in and registration are rate-limited per IP (10 per minute, 429). Payments are simulated, so this stops one account locking up every slot or someone else's number plate. |
+| D22 | Marketplace. A **space** (stored in `facilities`) is a host's listing: name, house address, locality, city, opening hours, rates and one or more slots. Any customer can list spaces and becomes their host; there is no separate host role. The platform admin manages every space; a host manages only the spaces they own (`facilities.owner_id`). A space from the original single-facility version has no owner and is managed by the admin. |
+| D23 | Search and privacy. Drivers search listed spaces by locality or city (case-insensitive text match) and optionally vehicle type. Search results and the public space page show name, locality, city, hours and prices but **not the house address**; the address is shown only on the driver's own booking, to the space's host and to the admin. |
+| D24 | Hosts cannot book their own spaces (409). A host's management routes take `space_id`; a space the caller does not own answers 404, so space ids cannot be probed. A host checks in, checks out and cancels only bookings at their own spaces (cancel rules as the admin, D8). |
 | D21 | Booking emails (optional, Amazon SNS). With `SNS_TOPIC_ARN` set, registering subscribes the customer's email to the topic with a filter policy on their own address; AWS first sends them a subscription confirmation email. Once they confirm, they get an email when a booking is confirmed or cancelled: each message carries an `email` attribute, so SNS delivers it only to that customer. An owner email subscribed without a filter receives every message. Sending is best effort: it happens after the response is sent, and an SNS failure never fails a registration or booking. With no topic set, nothing is sent. |
 
 **Booking states**

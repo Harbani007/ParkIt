@@ -219,6 +219,12 @@ export default function BookingDetail() {
       <section className="card stack" aria-labelledby="details-heading">
         <h2 id="details-heading">Details</h2>
         <dl className="dl">
+          {b.space ? (
+            <Item label="Where">
+              <strong>{b.space.name}</strong>
+              {b.space.address ? <><br />{b.space.address}, {b.space.locality}, {b.space.city}</> : <>, {b.space.locality}</>}
+            </Item>
+          ) : null}
           <Item label="When">{formatTimeRange(b.starts_at, b.ends_at)}</Item>
           <Item label="Duration">{b.hours} {b.hours === 1 ? 'hour' : 'hours'}</Item>
           <Item label="Slot">{b.slot ? `${b.slot.code} (${b.slot.vehicle_type})` : '—'}</Item>

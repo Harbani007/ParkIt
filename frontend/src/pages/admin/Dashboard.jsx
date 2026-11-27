@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { adminBookings, cancelBooking } from '../../api/parkit.js';
+import { adminBookings, manageCancel } from '../../api/parkit.js';
+import { useManage } from '../../manage/ManageScope.jsx';
 import Alert from '../../components/Alert.jsx';
 import ConfirmDialog from '../../components/ConfirmDialog.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
@@ -22,6 +23,7 @@ const STATUS_OPTIONS = [
 ];
 
 export default function Dashboard() {
+  const { linkBase, isHost } = useManage();
   const [date, setDate] = useState(() => todayIST());
   const [status, setStatus] = useState('');
   const [bookings, setBookings] = useState(null);
@@ -33,7 +35,7 @@ export default function Dashboard() {
   const [cancelling, setCancelling] = useState(false);
   const [notice, setNotice] = useState(null);
 
-  useEffect(() => { document.title = 'Admin dashboard | ParkIt'; }, []);
+  useEffect(() => { document.title = `${isHost ? 'Host' : 'Admin'} dashboard | ParkIt`; }, [isHost]);
 
   useEffect(() => {
     if (!date) return undefined;
@@ -54,7 +56,7 @@ export default function Dashboard() {
     if (!toCancel) return;
     setCancelling(true);
     try {
-      await cancelBooking(toCancel.booking_code);
+      await manageCancel(toCancel.booking_code);
       setNotice({ tone: 'success', text: `Booking ${toCancel.booking_code} cancelled and refunded (simulated).` });
       setToCancel(null);
       setReload((n) => n + 1);
@@ -73,12 +75,12 @@ export default function Dashboard() {
   return (
     <div className="stack stack-lg">
       <PageHeader
-        title="Admin dashboard"
-        subtitle="Bookings and revenue for the facility. Times are IST."
+        title={isHost ? 'Host dashboard' : 'Admin dashboard'}
+        subtitle={isHost ? 'Bookings and earnings for your space. Times are IST.' : 'Bookings and revenue for the facility. Times are IST.'}
         actions={
           <>
-            <Link className="btn btn-primary" to="/admin/gate">Gate</Link>
-            <Link className="btn btn-secondary" to="/admin/slots">Slots</Link>
+            <Link className="btn btn-primary" to={`${linkBase}/gate`}>Gate</Link>
+            <Link className="btn btn-secondary" to={`${linkBase}/slots`}>Slots</Link>
           </>
         }
       />
@@ -151,7 +153,7 @@ export default function Dashboard() {
                     <td data-label="Status"><StatusBadge booking={b} /></td>
                     <td data-label="Actions" className="actions">
                       {b.status === 'confirmed' || b.status === 'checked_in' ? (
-                        <Link className="btn btn-secondary btn-sm" to={`/admin/gate?code=${encodeURIComponent(b.booking_code)}`}>
+                        <Link className="btn btn-secondary btn-sm" to={`${linkBase}/gate?code=${encodeURIComponent(b.booking_code)}`}>
                           Open at gate
                         </Link>
                       ) : null}

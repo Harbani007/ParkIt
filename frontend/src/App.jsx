@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, NavLink, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
+import { Navigate, NavLink, Outlet, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import { health } from './api/parkit.js';
 import { roleHome, useAuth } from './auth/AuthContext.jsx';
 import RequireRole from './auth/RequireRole.jsx';
@@ -14,12 +14,17 @@ import Slots from './pages/admin/Slots.jsx';
 import Settings from './pages/admin/Settings.jsx';
 import Gate from './pages/admin/Gate.jsx';
 import NotFound from './pages/NotFound.jsx';
+import Spaces from './pages/Spaces.jsx';
+import HostSpaces from './pages/host/HostSpaces.jsx';
+import HostSpaceLayout from './pages/host/HostSpaceLayout.jsx';
+import { ManageScope } from './manage/ManageScope.jsx';
 import Icon, { BrandMark } from './components/Icon.jsx';
 
 const TITLES = [
   ['/login', 'Log in'],
   ['/register', 'Register'],
-  ['/book', 'Book a slot'],
+  ['/spaces', 'Find parking'],
+  ['/host', 'Your spaces'],
   ['/bookings', 'My bookings'],
   ['/admin/slots', 'Slots'],
   ['/admin/settings', 'Settings'],
@@ -30,6 +35,8 @@ const TITLES = [
 function pageTitle(pathname) {
   if (pathname === '/') return 'ParkIt: book parking ahead';
   if (pathname.startsWith('/bookings/')) return 'Booking | ParkIt';
+  if (/^\/spaces\/\d+/.test(pathname)) return 'Book a space | ParkIt';
+  if (/^\/host\/\d+/.test(pathname)) return 'Manage your space | ParkIt';
   const hit = TITLES.find(([p]) => pathname === p);
   return `${hit ? hit[1] : 'Page not found'} | ParkIt`;
 }
@@ -66,8 +73,8 @@ function NavBar() {
       : role === 'admin'
       ? [['/admin', 'Dashboard', true], ['/admin/gate', 'Gate'], ['/admin/slots', 'Slots'], ['/admin/settings', 'Settings']]
       : role === 'customer'
-        ? [['/book', 'Book a slot'], ['/bookings', 'My bookings', true]]
-        : [['/book', 'Book a slot'], ['/login', 'Log in'], ['/register', 'Register']];
+        ? [['/spaces', 'Find parking'], ['/bookings', 'My bookings', true], ['/host', 'Host']]
+        : [['/spaces', 'Find parking'], ['/login', 'Log in'], ['/register', 'Register']];
 
   return (
     <header className={`nav no-print${open ? ' is-open' : ''}`}>
@@ -94,6 +101,14 @@ function NavBar() {
         )}
       </nav>
     </header>
+  );
+}
+
+function AdminScope() {
+  return (
+    <ManageScope linkBase="/admin" apiBase="/admin">
+      <Outlet />
+    </ManageScope>
   );
 }
 
@@ -126,13 +141,24 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
           <Route path="/register" element={<GuestOnly><Register /></GuestOnly>} />
-          <Route path="/book" element={<RequireRole roles={['customer']}><Book /></RequireRole>} />
+          <Route path="/spaces" element={<Spaces />} />
+          <Route path="/spaces/:spaceId" element={<RequireRole roles={['customer']}><Book /></RequireRole>} />
+          <Route path="/book" element={<Navigate to="/spaces" replace />} />
+          <Route path="/host" element={<RequireRole roles={['customer']}><HostSpaces /></RequireRole>} />
+          <Route path="/host/:spaceId" element={<RequireRole roles={['customer']}><HostSpaceLayout /></RequireRole>}>
+            <Route index element={<Dashboard />} />
+            <Route path="gate" element={<Gate />} />
+            <Route path="slots" element={<Slots />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
           <Route path="/bookings" element={<RequireRole roles={['customer']}><MyBookings /></RequireRole>} />
           <Route path="/bookings/:code" element={<RequireRole roles={['customer', 'admin']}><BookingDetail /></RequireRole>} />
-          <Route path="/admin" element={<RequireRole roles={['admin']}><Dashboard /></RequireRole>} />
-          <Route path="/admin/slots" element={<RequireRole roles={['admin']}><Slots /></RequireRole>} />
-          <Route path="/admin/settings" element={<RequireRole roles={['admin']}><Settings /></RequireRole>} />
-          <Route path="/admin/gate" element={<RequireRole roles={['admin']}><Gate /></RequireRole>} />
+          <Route path="/admin" element={<RequireRole roles={['admin']}><AdminScope /></RequireRole>}>
+            <Route index element={<Dashboard />} />
+            <Route path="slots" element={<Slots />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="gate" element={<Gate />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

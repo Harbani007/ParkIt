@@ -4,7 +4,6 @@ import { pool } from '../../db/pool.js';
 import { withTransaction } from '../../db/tx.js';
 import { validate } from '../../middleware/validate.js';
 import { HttpError } from '../../middleware/errors.js';
-import { facilityId } from '../../services/facility.js';
 
 export const adminSlotsRouter = Router();
 
@@ -38,10 +37,10 @@ const patchBody = z
   })
   .refine((b) => Object.keys(b).length > 0, 'Provide at least one field to change');
 
-adminSlotsRouter.get('/', async (_req, res) => {
+adminSlotsRouter.get('/', async (req, res) => {
   const { rows } = await pool.query(
     `SELECT ${COLUMNS} FROM slots WHERE facility_id = $1 ORDER BY code`,
-    [facilityId()],
+    [req.space.id],
   );
   res.json({ slots: rows });
 });
@@ -51,7 +50,7 @@ adminSlotsRouter.post('/', validate({ body: createBody }), async (req, res) => {
   const { rows } = await pool.query(
     `INSERT INTO slots (facility_id, code, vehicle_type, hourly_rate, daily_rate)
      VALUES ($1, $2, $3, $4, $5) RETURNING ${COLUMNS}`,
-    [facilityId(), b.code, b.vehicle_type, b.hourly_rate, b.daily_rate],
+    [req.space.id, b.code, b.vehicle_type, b.hourly_rate, b.daily_rate],
   );
   res.status(201).json(rows[0]);
 });
@@ -67,7 +66,7 @@ adminSlotsRouter.patch('/:id', validate({ params: idParams, body: patchBody }), 
       sets.push(`${col} = $${values.length}`);
     }
   }
-  values.push(req.valid.params.id, facilityId());
+  values.push(req.valid.params.id, req.space.id);
   const idParam = values.length - 1;
   const facilityParam = values.length;
   const row = await withTransaction(async (client) => {
@@ -75,7 +74,7 @@ adminSlotsRouter.patch('/:id', validate({ params: idParams, body: patchBody }), 
       // Lock the slot, then refuse a type change while it has live bookings.
       const slot = await client.query(
         'SELECT vehicle_type FROM slots WHERE id = $1 AND facility_id = $2 FOR UPDATE',
-        [req.valid.params.id, facilityId()],
+        [req.valid.params.id, req.space.id],
       );
       if (slot.rows[0] && slot.rows[0].vehicle_type !== b.vehicle_type) {
         const live = await client.query(
@@ -102,7 +101,7 @@ adminSlotsRouter.patch('/:id', validate({ params: idParams, body: patchBody }), 
 adminSlotsRouter.delete('/:id', validate({ params: idParams }), async (req, res) => {
   const { rowCount } = await pool.query('DELETE FROM slots WHERE id = $1 AND facility_id = $2', [
     req.valid.params.id,
-    facilityId(),
+    req.space.id,
   ]);
   if (!rowCount) throw new HttpError(404, 'Slot not found');
   res.status(204).end();

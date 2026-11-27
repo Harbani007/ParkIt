@@ -4,7 +4,6 @@ import { pool } from '../../db/pool.js';
 import { validate } from '../../middleware/validate.js';
 import { HttpError } from '../../middleware/errors.js';
 import { addDays, isValidDate, istToUtc, timeToMinutes } from '../../lib/time.js';
-import { facilityId, getFacility } from '../../services/facility.js';
 
 export const adminSummaryRouter = Router();
 
@@ -26,8 +25,8 @@ adminSummaryRouter.get('/', validate({ query: summaryQuery }), async (req, res) 
   if (days > MAX_DAYS) throw new HttpError(400, `Range must be at most ${MAX_DAYS} days`);
 
   const now = new Date();
-  const facility = await getFacility();
-  const fid = facilityId();
+  const facility = req.space;
+  const fid = facility.id;
   const rangeStart = istToUtc(from, '00:00');
   const rangeEnd = istToUtc(addDays(to, 1), '00:00');
   const openHours = (timeToMinutes(facility.closes_at) - timeToMinutes(facility.opens_at)) / 60;

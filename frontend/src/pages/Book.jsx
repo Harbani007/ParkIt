@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { createBooking, getAvailability, getFacility } from '../api/parkit.js';
+import { Link, useParams } from 'react-router-dom';
+import { createBooking, getAvailability, getSpace } from '../api/parkit.js';
 import { fileUrl } from '../api/client.js';
 import { useConfig } from '../api/useConfig.js';
 import Icon, { BrandMark } from '../components/Icon.jsx';
@@ -28,6 +28,7 @@ import { isValidVehicleNumber, normaliseVehicleNumber } from '../lib/codes.js';
 const isAbort = (e) => e?.name === 'AbortError';
 
 export default function Book() {
+  const { spaceId } = useParams();
   const { email_notifications: emailsOn } = useConfig();
   const [facility, setFacility] = useState(null);
   const [facilityError, setFacilityError] = useState(null);
@@ -58,7 +59,7 @@ export default function Book() {
   const loadFacility = useCallback(() => {
     const ctrl = new AbortController();
     setFacilityError(null);
-    getFacility({ signal: ctrl.signal })
+    getSpace(spaceId, { signal: ctrl.signal })
       .then((f) => {
         setFacility(f);
         const today = todayIST();
@@ -68,7 +69,7 @@ export default function Book() {
       })
       .catch((e) => !isAbort(e) && setFacilityError(e));
     return ctrl;
-  }, []);
+  }, [spaceId]);
   useEffect(() => {
     const ctrl = loadFacility();
     return () => ctrl.abort();
@@ -101,7 +102,7 @@ export default function Book() {
     const ctrl = new AbortController();
     setAvail((a) => ({ ...a, status: 'loading', error: null }));
     const timer = setTimeout(() => {
-      getAvailability({ startsAt, hours, vehicleType: type }, { signal: ctrl.signal })
+      getAvailability({ spaceId, startsAt, hours, vehicleType: type }, { signal: ctrl.signal })
         .then((res) => setAvail({ status: 'ready', slots: res.slots, error: null }))
         .catch((e) => {
           if (!isAbort(e)) setAvail({ status: 'error', slots: [], error: e });
@@ -111,7 +112,7 @@ export default function Book() {
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [ready, startsAt, hours, type, refreshKey]);
+  }, [ready, startsAt, hours, type, refreshKey, spaceId]);
 
   const slots = useMemo(() => avail.slots.filter((s) => s.vehicle_type === type), [avail.slots, type]);
   const anyPrice = useMemo(() => anySlotPrice(slots), [slots]);
@@ -168,6 +169,7 @@ export default function Book() {
     setSubmitting(true);
     try {
       const body = {
+        space_id: Number(spaceId),
         vehicle_type: type,
         starts_at: startsAt,
         hours,
@@ -182,7 +184,7 @@ export default function Book() {
         // Slot may have just been taken: refresh the grid and, if our slot is gone, go back.
         let stillFree = true;
         try {
-          const res = await getAvailability({ startsAt, hours, vehicleType: type });
+          const res = await getAvailability({ spaceId, startsAt, hours, vehicleType: type });
           setAvail({ status: 'ready', slots: res.slots, error: null });
           if (typeof selected === 'number') {
             stillFree = res.slots.some((s) => s.id === selected && s.available);
@@ -262,7 +264,12 @@ export default function Book() {
               <br />
               {formatTimeRange(booking.starts_at, booking.ends_at)}
             </p>
-            <p className="muted m-0">Show the code or QR at the gate.</p>
+            {booking.space?.address ? (
+              <p className="m-0">
+                <strong>{booking.space.name}</strong>, {booking.space.address}, {booking.space.locality}, {booking.space.city}
+              </p>
+            ) : null}
+            <p className="muted m-0">Show the code or QR to the host when you arrive.</p>
             {emailsOn ? (
               <p className="muted m-0">
                 <Icon name="mail" size={16} /> A confirmation email is on its way (if you confirmed the AWS subscription email).
@@ -347,9 +354,10 @@ export default function Book() {
   return (
     <div className="container stack-lg">
       <PageHeader
-        title="Book a slot"
+        title={facility.name}
         headingRef={chooseHeading}
-        subtitle={`Open ${facility.opens_at} to ${facility.closes_at} IST. Times are Indian Standard Time.`}
+        subtitle={`${facility.locality}, ${facility.city} · free ${facility.opens_at} to ${facility.closes_at} IST. The exact address is shown after you book.`}
+        actions={<Link className="btn btn-ghost" to="/spaces">All spaces</Link>}
       />
 
       {notice ? <Alert tone={notice.tone}>{notice.text}</Alert> : null}

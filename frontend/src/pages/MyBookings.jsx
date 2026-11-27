@@ -86,7 +86,7 @@ export default function MyBookings() {
     <div className="stack">
       <PageHeader
         title="My bookings"
-        actions={<Link to="/book" className="btn btn-primary">Book a slot</Link>}
+        actions={<Link to="/spaces" className="btn btn-primary">Find parking</Link>}
       />
 
       {notice ? (
@@ -130,13 +130,13 @@ export default function MyBookings() {
             <EmptyState
               title="No active bookings"
               message="Reserve a car or bike slot ahead of time and get a QR code for the gate."
-              action={<Link to="/book" className="btn btn-primary">Book a slot</Link>}
+              action={<Link to="/spaces" className="btn btn-primary">Find parking</Link>}
             />
           ) : (
             <EmptyState
               title="No past bookings yet"
               message="Completed, cancelled and missed bookings will show up here."
-              action={<Link to="/book" className="btn btn-secondary">Book a slot</Link>}
+              action={<Link to="/spaces" className="btn btn-secondary">Find parking</Link>}
             />
           )
         ) : (

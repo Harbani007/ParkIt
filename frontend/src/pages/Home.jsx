@@ -1,25 +1,27 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getFacility } from '../api/parkit.js';
 import { roleHome, useAuth } from '../auth/AuthContext.jsx';
 import Icon from '../components/Icon.jsx';
 import ParkingArt from '../components/ParkingArt.jsx';
 
 const STEPS = [
-  ['1', 'Book', 'Pick a day, time and vehicle type, choose a slot and see the price up front.'],
-  ['2', 'Get your QR', 'Pay (simulated) and receive a booking code with a QR image.'],
-  ['3', 'Check in', 'Show the code at the gate. Staff check you in and out.'],
+  ['1', 'Search', 'Type the locality you are driving to and see private spaces nearby, with prices up front.'],
+  ['2', 'Book and get your QR', 'Pick a time, pay (simulated) and get a booking code, a QR image and the exact address.'],
+  ['3', 'Park', 'Show the code to the host when you arrive. They check you in and out.'],
 ];
 
 const FEATURES = [
-  ['shield', 'Never double booked', 'The database itself refuses two bookings for the same slot at the same time.', true],
-  ['qr', 'QR entry', 'Every booking gets a code and a QR image, stored privately in Amazon S3.'],
-  ['mail', 'Email confirmations', 'Booking and cancellation emails delivered through Amazon SNS.', true],
-  ['clock', 'Fair pricing', 'Pay by the hour, capped at the daily rate. Cancel free up to 2 hours before.'],
+  ['home', 'Earn from your empty spot', 'At the office all day? List the space at your home for those hours and get paid.', true],
+  ['pin', 'Parking where you are going', 'Coming from Noida to Lajpat Nagar? Find and reserve a private spot before you leave.'],
+  ['shield', 'Never double booked', 'The database itself refuses two bookings for the same spot at the same time.', true],
+  ['mail', 'QR and email confirmations', 'Every booking gets a QR code (stored in Amazon S3) and an email through Amazon SNS.'],
 ];
 
 export default function Home() {
   const { role } = useAuth();
+  const navigate = useNavigate();
+  const [where, setWhere] = useState('');
   const [facility, setFacility] = useState(null);
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
@@ -35,31 +37,48 @@ export default function Home() {
     return () => ctrl.abort();
   }, [attempt]);
 
-  const cta =
-    role === 'admin'
-      ? { to: roleHome('admin'), label: 'Open dashboard' }
-      : { to: '/book', label: 'Book a slot' };
+  const search = (e) => {
+    e.preventDefault();
+    navigate(where.trim() ? `/spaces?q=${encodeURIComponent(where.trim())}` : '/spaces');
+  };
 
   return (
     <div className="stack stack-lg">
       <section className="hero-band" aria-labelledby="hero-heading">
         <div>
-          <span className="hero-eyebrow"><span className="pulse" aria-hidden="true" />Slots open today</span>
+          <span className="hero-eyebrow"><span className="pulse" aria-hidden="true" />Spaces across Delhi NCR</span>
           <h1 id="hero-heading">
-            Park in a private facility, <span className="hl">booked ahead.</span>
+            Empty parking at home? <span className="hl">Someone nearby needs it.</span>
           </h1>
           <p className="lead">
-            ParkIt lets you reserve a car or bike slot in advance. Check availability, see the
-            price, and get a QR booking code for the gate.
+            ParkIt connects home owners with free parking spaces to drivers who need a spot nearby.
+            Search a locality, book by the hour and get a QR code for entry.
           </p>
+          <form className="hero-search" role="search" onSubmit={search}>
+            <label htmlFor="hero-where" className="visually-hidden">Where do you need parking?</label>
+            <Icon name="search" size={20} className="search-icon" />
+            <input
+              id="hero-where"
+              className="search-input"
+              placeholder="Where are you going? e.g. Lajpat Nagar"
+              value={where}
+              onChange={(e) => setWhere(e.target.value)}
+              autoComplete="off"
+            />
+            <button type="submit" className="btn btn-accent">Find parking</button>
+          </form>
           <div className="row">
-            <Link to={cta.to} className="btn btn-accent btn-lg">{cta.label}</Link>
-            {!role && <Link to="/login" className="btn btn-secondary btn-lg">Log in</Link>}
-            {role === 'customer' && <Link to="/bookings" className="btn btn-secondary btn-lg">My bookings</Link>}
+            {role === 'admin' ? (
+              <Link to={roleHome('admin')} className="btn btn-secondary">Open admin dashboard</Link>
+            ) : (
+              <Link to={role ? '/host' : '/register?next=/host'} className="btn btn-secondary">
+                <Icon name="home" size={18} /> List your parking space
+              </Link>
+            )}
           </div>
           <ul className="hero-chips" aria-label="Highlights">
-            <li><Icon name="check" size={16} />Instant QR code</li>
-            <li><Icon name="check" size={16} />Free cancellation</li>
+            <li><Icon name="check" size={16} />Book by the hour</li>
+            <li><Icon name="check" size={16} />Address shared only after booking</li>
             <li><Icon name="cloud" size={16} />Hosted on AWS</li>
           </ul>
         </div>
@@ -79,7 +98,7 @@ export default function Home() {
       <section className="card facility-card" aria-labelledby="facility-heading">
         <span className="icon-bubble is-accent"><Icon name="car" size={24} /></span>
         <div className="stack">
-          <h2 id="facility-heading" className="m-0">The facility</h2>
+          <h2 id="facility-heading" className="m-0">Run by ParkIt: our own facility</h2>
           {error ? (
             <div className="alert alert-danger" role="alert">
               <p>Could not load facility details: {error}</p>
@@ -100,7 +119,9 @@ export default function Home() {
               <div><dt>Book up to</dt><dd>{facility.max_advance_days} days ahead</dd></div>
             </dl>
           )}
-          <p className="muted m-0">Hourly and daily rates are shown per slot when you choose a time.</p>
+          <p className="muted m-0">
+            Plus spaces listed by home owners across the city. <Link to="/spaces">See all spaces</Link>
+          </p>
         </div>
       </section>
 
