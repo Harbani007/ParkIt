@@ -18,6 +18,13 @@ const spaceIdOf = (req) => {
 // unless space_id is given.
 async function adminScope(req, _res, next) {
   try {
+    // space_id=all: the platform-wide view (dashboard summary and day list) over every space.
+    if (req.query.space_id === 'all') {
+      req.space = await getFacility();
+      req.allSpaces = true;
+      req.scopeAll = true;
+      return next();
+    }
     const id = spaceIdOf(req);
     req.space = await getFacility(id);
     req.scopeAll = id === undefined;

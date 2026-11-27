@@ -76,7 +76,7 @@ export default function Dashboard() {
     <div className="stack stack-lg">
       <PageHeader
         title={isHost ? 'Host dashboard' : 'Admin dashboard'}
-        subtitle={isHost ? 'Bookings and earnings for your space. Times are IST.' : 'Bookings and revenue for the facility. Times are IST.'}
+        subtitle={isHost ? 'Bookings and earnings for your space. Times are IST.' : 'Bookings and revenue across all spaces on ParkIt. Times are IST.'}
         actions={
           <>
             <Link className="btn btn-primary" to={`${linkBase}/gate`}>Gate</Link>
@@ -132,6 +132,7 @@ export default function Dashboard() {
                   <th scope="col">Code</th>
                   <th scope="col">Customer</th>
                   <th scope="col">Vehicle</th>
+                  {!isHost ? <th scope="col">Space</th> : null}
                   <th scope="col">Slot</th>
                   <th scope="col" className="num">Amount</th>
                   <th scope="col">Status</th>
@@ -148,6 +149,7 @@ export default function Dashboard() {
                       {b.customer?.phone ? <><br /><span className="muted">{b.customer.phone}</span></> : null}
                     </td>
                     <td data-label="Vehicle">{b.vehicle_number}</td>
+                    {!isHost ? <td data-label="Space">{b.space ? `${b.space.name} · ${b.space.locality}` : '—'}</td> : null}
                     <td data-label="Slot">{b.slot?.code ?? '—'}</td>
                     <td data-label="Amount" className="num">{formatINR(b.amount)}</td>
                     <td data-label="Status"><StatusBadge booking={b} /></td>

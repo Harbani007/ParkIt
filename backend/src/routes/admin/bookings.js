@@ -35,7 +35,7 @@ const json = (row, req, now) => toBookingJson(row, { viewer: manager(req), now, 
 adminBookingsRouter.get('/', validate({ query: listQuery }), async (req, res) => {
   const { date, status } = req.valid.query;
   const now = new Date();
-  const rows = await listForDay({ date, status, now, facilityId: req.space.id });
+  const rows = await listForDay({ date, status, now, facilityId: req.allSpaces ? null : req.space.id });
   res.json({ date, bookings: await Promise.all(rows.map((r) => json(r, req, now))) });
 });
 

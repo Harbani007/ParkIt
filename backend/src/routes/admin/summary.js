@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { pool } from '../../db/pool.js';
 import { validate } from '../../middleware/validate.js';
 import { HttpError } from '../../middleware/errors.js';
-import { addDays, isValidDate, istToUtc, timeToMinutes } from '../../lib/time.js';
+import { addDays, isValidDate, istToUtc } from '../../lib/time.js';
 
 export const adminSummaryRouter = Router();
 
@@ -26,13 +26,20 @@ adminSummaryRouter.get('/', validate({ query: summaryQuery }), async (req, res) 
 
   const now = new Date();
   const facility = req.space;
-  const fid = facility.id;
+  // null = every space (admin, space_id=all); timezone is the same Asia/Kolkata for all (D1).
+  const fid = req.allSpaces ? null : facility.id;
   const rangeStart = istToUtc(from, '00:00');
   const rangeEnd = istToUtc(addDays(to, 1), '00:00');
-  const openHours = (timeToMinutes(facility.closes_at) - timeToMinutes(facility.opens_at)) / 60;
 
-  const [{ rows: slotRows }, { rows: dayRows }, { rows: countRows }] = await Promise.all([
-    pool.query('SELECT count(*)::int AS n FROM slots WHERE facility_id = $1', [fid]),
+  const [{ rows: capRows }, { rows: dayRows }, { rows: countRows }] = await Promise.all([
+    // Capacity per day = sum over spaces of (slots x that space's opening hours).
+    pool.query(
+      `SELECT COALESCE(SUM(c.n * EXTRACT(EPOCH FROM (f.closes_at - f.opens_at)) / 3600), 0)::float8 AS hours
+         FROM facilities f
+         JOIN (SELECT facility_id, count(*) AS n FROM slots GROUP BY facility_id) c ON c.facility_id = f.id
+        WHERE ($1::int IS NULL OR f.id = $1)`,
+      [fid],
+    ),
     pool.query(
       `SELECT to_char(d.day::date, 'YYYY-MM-DD') AS date,
               COALESCE(SUM(p.amount) FILTER (WHERE p.status = 'paid'), 0)::numeric(14, 2)::text AS revenue,
@@ -40,7 +47,7 @@ adminSummaryRouter.get('/', validate({ query: summaryQuery }), async (req, res) 
                        FILTER (WHERE b.status <> 'cancelled'), 0)::float8 AS hours,
               (COUNT(b.id) FILTER (WHERE b.status <> 'cancelled'))::int AS bookings
          FROM generate_series($1::timestamp, $2::timestamp, interval '1 day') AS d(day)
-         LEFT JOIN (bookings b JOIN slots s ON s.id = b.slot_id AND s.facility_id = $3)
+         LEFT JOIN (bookings b JOIN slots s ON s.id = b.slot_id AND ($3::int IS NULL OR s.facility_id = $3))
                 ON (b.starts_at AT TIME ZONE $4)::date = d.day::date
          LEFT JOIN payments p ON p.booking_id = b.id
         GROUP BY d.day
@@ -54,12 +61,12 @@ adminSummaryRouter.get('/', validate({ query: summaryQuery }), async (req, res) 
               (COUNT(*) FILTER (WHERE b.status = 'completed'))::int AS completed,
               (COUNT(*) FILTER (WHERE b.status = 'cancelled'))::int AS cancelled
          FROM bookings b JOIN slots s ON s.id = b.slot_id
-        WHERE s.facility_id = $1 AND b.starts_at >= $2 AND b.starts_at < $3`,
+        WHERE ($1::int IS NULL OR s.facility_id = $1) AND b.starts_at >= $2 AND b.starts_at < $3`,
       [fid, rangeStart, rangeEnd, now],
     ),
   ]);
 
-  const dayCapacity = slotRows[0].n * openHours;
+  const dayCapacity = capRows[0].hours;
   let revenuePaise = 0;
   let totalHours = 0;
   const byDay = dayRows.map((r) => {
