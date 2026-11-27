@@ -4,8 +4,11 @@ Short notes for the viva. Everything here is something ParkIt actually uses.
 
 ## 1. One-line summary
 
-ParkIt is a web app for booking parking slots at one private property. Customers book a slot and get a
-QR code. The owner (admin) manages slots, checks cars in and out, and sees occupancy and revenue.
+ParkIt is a marketplace for private parking spaces in Delhi NCR, like Airbnb for parking. A home
+owner whose spot is empty while they are at work lists it (as a **host**) with the hours and price.
+A driver coming from, say, Noida searches the locality they are going to, books by the hour and gets
+a QR code; the exact address is revealed only after booking. Hosts check cars in and out and see their
+earnings; the platform admin can manage every space.
 It runs on **AWS**, built by one **CloudFormation** template in the AWS Academy sandbox.
 
 ## 2. The AWS services (learn these four)
@@ -122,6 +125,22 @@ The template writes these on the server. Know the first four:
 - **Booking emails** through Amazon SNS (publish/subscribe, filter policies).
 - **Tests:** about 200 backend tests and about 90 frontend tests, run automatically on GitHub Actions
   (CI) on every push.
+
+## 8a. Marketplace design (likely questions)
+
+- **One table, many spaces.** Each listed space is a row in `facilities` with an `owner_id` (the host),
+  `locality` and `city`. Its spots are rows in `slots`. The booking engine is unchanged: every booking
+  is for one slot, so the no-double-booking constraint still works for every host at once.
+- **Who can manage what.** The same management API serves the admin (`/api/admin`, any space) and hosts
+  (`/api/host?space_id=…`). The server checks the host owns that space; otherwise it answers 404, so
+  nobody can probe other people's spaces.
+- **Privacy.** Search shows locality, hours and price, never the house number. The address is shown
+  only on the driver's own booking.
+- **A host cannot book their own space** (409).
+- **Scaling idea.** Search today is a text match on locality. With many cities, add latitude and
+  longitude and search by distance (PostGIS on RDS), and cache popular searches.
+- **Concurrency per space.** Bookings take a lock per space (`pg_advisory_xact_lock`), so two hosts'
+  spaces never block each other; only bookings for the same space queue for a few milliseconds.
 
 ## 9. Honest limitations (say them before they are asked)
 

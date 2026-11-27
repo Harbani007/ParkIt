@@ -72,6 +72,13 @@ describe.skipIf(!dbUp)('bookings (customer)', () => {
         booking_code: expect.stringMatching(/^PK-[A-HJ-NP-Z2-9]{6}$/),
         status: 'confirmed',
         slot: { id: s.id, code: s.code, vehicle_type: 'car' },
+        space: {
+          id: facilityId,
+          name: expect.any(String),
+          locality: null,
+          city: 'New Delhi',
+          address: null,
+        },
         vehicle_number: 'DL3CAB1234',
         starts_at: istIso(5, '10:00'),
         ends_at: istIso(5, '13:00'),

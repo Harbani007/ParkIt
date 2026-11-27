@@ -16,6 +16,7 @@ export const bookingsRouter = Router();
 
 const createBody = z
   .object({
+    space_id: z.number().int().positive().nullish(),
     slot_id: z.number().int().positive().nullish(),
     vehicle_type: z.enum(['car', 'bike']).nullish(),
     starts_at: z.string().datetime({ offset: true, message: 'Must be an ISO 8601 time with an offset' }),
@@ -33,7 +34,7 @@ bookingsRouter.post('/', requireAuth, requireRole('customer'), validate({ body: 
   const b = req.valid.body;
   const now = new Date();
   const row = await createBooking({
-    facility: await getFacility(),
+    facility: await getFacility(b.space_id ?? undefined),
     userId: req.user.id,
     slotId: b.slot_id ?? undefined,
     vehicleType: b.vehicle_type ?? undefined,

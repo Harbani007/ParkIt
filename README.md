@@ -2,13 +2,19 @@
 
 **Cloud-Based Parking Slot Booking and Management System** (UCS531 Cloud Computing project)
 
-ParkIt lets the owner of a private parking facility rent out spare slots. Customers register, check
-slot availability for a date and time, see the price, book a slot, and get a QR booking code. The
-owner (admin) manages slots, rates and opening hours, blocks or unblocks slots, checks vehicles in
-and out at the gate, and sees occupancy and revenue. Payment is simulated in this version.
+ParkIt is a marketplace for private parking in Delhi NCR. A home owner whose driveway sits empty
+while they are at the office lists it as a **host**: house address, locality, the hours it is free
+and the price. A driver heading to that area (say from Noida to Lajpat Nagar) searches by locality,
+books a spot by the hour and gets a QR booking code; the exact address is shown only after booking.
+Each host manages their own spaces (check-in at the gate, spots, hours, earnings), and the platform
+admin can manage every space. Payment is simulated in this version.
 
 ## Features
 
+- **Marketplace:** any user can list a space and becomes its host; drivers search spaces by
+  locality; the house address stays private until a booking is made.
+- **Hosts:** a dashboard per space with earnings, occupancy and bookings; gate check-in and
+  check-out; spots and rates; hours and listing details.
 - **Customers:** register and log in; book in three steps (date, time and vehicle type → slot grid
   with prices, or "any free slot" → simulated payment); QR code and booking code; my bookings with
   cancellation up to 2 hours before the start.

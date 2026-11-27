@@ -11,6 +11,8 @@ import { bookingsRouter } from './routes/bookings.js';
 import { filesRouter } from './routes/files.js';
 import { adminRouter } from './routes/admin/index.js';
 import { configRouter } from './routes/config.js';
+import { spacesRouter } from './routes/spaces.js';
+import { hostRouter } from './routes/host.js';
 import { errorHandler, notFound } from './middleware/errors.js';
 
 export function createApp() {
@@ -36,6 +38,8 @@ export function createApp() {
   app.use('/api/bookings', bookingsRouter);
   app.use('/api/files', filesRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/spaces', spacesRouter);
+  app.use('/api/host', hostRouter);
 
   app.use(notFound);
   app.use(errorHandler);

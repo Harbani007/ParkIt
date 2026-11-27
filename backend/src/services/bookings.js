@@ -31,9 +31,12 @@ export function parseBookingCode(param) {
 const BOOKING_SELECT = `
   SELECT b.*, s.code AS slot_code, s.vehicle_type AS slot_vehicle_type,
          p.amount AS payment_amount, p.status AS payment_status, p.provider AS payment_provider,
-         u.name AS customer_name, u.email AS customer_email, u.phone AS customer_phone
+         u.name AS customer_name, u.email AS customer_email, u.phone AS customer_phone,
+         f.id AS space_id, f.name AS space_name, f.locality AS space_locality, f.city AS space_city,
+         f.address AS space_address
     FROM bookings b
     JOIN slots s ON s.id = b.slot_id
+    JOIN facilities f ON f.id = s.facility_id
     JOIN users u ON u.id = b.user_id
     LEFT JOIN payments p ON p.booking_id = b.id`;
 
@@ -53,6 +56,13 @@ export async function toBookingJson(row, { viewer, now = new Date(), includeCust
     booking_code: row.booking_code,
     status,
     slot: { id: row.slot_id, code: row.slot_code, vehicle_type: row.slot_vehicle_type },
+    space: {
+      id: row.space_id,
+      name: row.space_name,
+      locality: row.space_locality,
+      city: row.space_city,
+      address: row.space_address,
+    },
     vehicle_number: row.vehicle_number,
     starts_at: iso(row.starts_at),
     ends_at: iso(row.ends_at),
@@ -193,6 +203,9 @@ export async function createBooking({
   const plate = normaliseVehicleNumber(vehicleNumber);
   const explicit = slotId != null;
   if (!explicit && !vehicleType) throw new HttpError(400, 'Choose a slot or a vehicle type');
+  if (facility.owner_id != null && String(facility.owner_id) === String(userId)) {
+    throw new HttpError(409, 'You cannot book your own space'); // D24
+  }
 
   // The QR holds the booking code, so the code is drawn first and the PNG is rendered and stored
   // before the transaction: no storage I/O happens while row or advisory locks are held.

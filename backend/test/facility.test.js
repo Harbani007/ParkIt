@@ -38,7 +38,7 @@ describe.skipIf(!dbUp)('facility routes', () => {
     expect(res.body.opens_at).toMatch(/^\d\d:\d\d$/);
     expect(res.body.closes_at).toMatch(/^\d\d:\d\d$/);
     expect(Object.keys(res.body).sort()).toEqual(
-      ['address', 'closes_at', 'id', 'max_advance_days', 'name', 'opens_at', 'timezone'],
+      ['address', 'city', 'closes_at', 'id', 'locality', 'max_advance_days', 'name', 'opens_at', 'timezone'],
     );
   });
 
@@ -48,7 +48,7 @@ describe.skipIf(!dbUp)('facility routes', () => {
     expect(res.body.opens_at).toBe('07:30');
     expect(res.body.max_advance_days).toBe(14);
     expect(res.body.closes_at).toBe(String(original.closes_at).slice(0, 5));
-    const get = await request(app).get('/api/facility');
+    const get = await request(app).get('/api/admin/facility').set('Authorization', `Bearer ${admin.token}`);
     expect(get.body).toEqual(res.body);
     const named = await patch({ name: 'Renamed', address: 'Elsewhere' });
     expect(named.body).toMatchObject({ name: 'Renamed', address: 'Elsewhere', opens_at: '07:30' });

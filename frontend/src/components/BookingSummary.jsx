@@ -6,7 +6,7 @@ import { formatTimeRange } from '../lib/time.js';
 // (the API includes it for admin viewers). `children` render in an action row at the bottom.
 export default function BookingSummary({ booking, showCustomer = false, children }) {
   if (!booking) return null;
-  const { booking_code: code, slot, vehicle_number: vehicle, starts_at: start, ends_at: end, hours, amount, customer } = booking;
+  const { booking_code: code, slot, space, vehicle_number: vehicle, starts_at: start, ends_at: end, hours, amount, customer } = booking;
   return (
     <article className="card stack" aria-label={`Booking ${code}`}>
       <div className="row row-between">
@@ -23,6 +23,9 @@ export default function BookingSummary({ booking, showCustomer = false, children
               {customer.email ? <><br /><span className="muted">{customer.email}</span></> : null}
             </dd>
           </div>
+        ) : null}
+        {space ? (
+          <div><dt>Where</dt><dd>{space.name} · {space.locality}{space.address ? <><br /><span className="muted">{space.address}, {space.city}</span></> : null}</dd></div>
         ) : null}
         <div><dt>When</dt><dd>{formatTimeRange(start, end)}</dd></div>
         <div><dt>Slot</dt><dd>{slot ? `${slot.code} (${slot.vehicle_type})` : '—'}</dd></div>

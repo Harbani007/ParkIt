@@ -13,12 +13,10 @@ function qs(params) {
   return s ? `?${s}` : '';
 }
 
-// Health and facility
+// Health, config and the default facility
 export const health = (opts) => api('/health', opts);
 export const getFacility = (opts) => api('/facility', opts);
 export const getConfig = (opts) => api('/config', opts); // -> { email_notifications }
-export const updateFacility = (fields, opts) =>
-  api('/admin/facility', { ...opts, method: 'PATCH', body: fields });
 
 // Auth: login/register -> { token, user }; me -> { user }
 export const login = (email, password, opts) =>
@@ -31,11 +29,16 @@ export const register = ({ name, email, phone, password }, opts) =>
   });
 export const me = (opts) => api('/auth/me', opts);
 
-// Availability -> { starts_at, ends_at, hours, slots: [...] }
-export const getAvailability = ({ startsAt, hours, vehicleType }, opts) =>
-  api(`/slots/availability${qs({ starts_at: startsAt, hours, vehicle_type: vehicleType })}`, opts);
+// Marketplace: search spaces (no address, D23) and one space
+export const searchSpaces = ({ q, vehicleType } = {}, opts) =>
+  api(`/spaces${qs({ q, vehicle_type: vehicleType })}`, opts); // -> { spaces }
+export const getSpace = (id, opts) => api(`/spaces/${enc(id)}`, opts);
 
-// Bookings (customer). body: { slot_id?, vehicle_type, starts_at, hours, vehicle_number }
+// Availability -> { starts_at, ends_at, hours, slots: [...] }
+export const getAvailability = ({ spaceId, startsAt, hours, vehicleType }, opts) =>
+  api(`/slots/availability${qs({ space_id: spaceId, starts_at: startsAt, hours, vehicle_type: vehicleType })}`, opts);
+
+// Bookings (customer). body: { space_id, slot_id?, vehicle_type, starts_at, hours, vehicle_number }
 export const createBooking = (body, opts) =>
   api('/bookings', { ...opts, method: 'POST', body });
 export const myBookings = (scope = 'active', opts) =>
@@ -44,20 +47,33 @@ export const getBooking = (code, opts) => api(`/bookings/${enc(code)}`, opts);
 export const cancelBooking = (code, opts) =>
   api(`/bookings/${enc(code)}/cancel`, { ...opts, method: 'POST' });
 
-// Admin: slots
-export const adminSlots = (opts) => api('/admin/slots', opts); // -> { slots }
-export const createSlot = (slot, opts) =>
-  api('/admin/slots', { ...opts, method: 'POST', body: slot });
-export const updateSlot = (id, fields, opts) =>
-  api(`/admin/slots/${enc(id)}`, { ...opts, method: 'PATCH', body: fields });
-export const deleteSlot = (id, opts) =>
-  api(`/admin/slots/${enc(id)}`, { ...opts, method: 'DELETE' }); // -> null
+// Hosting: the caller's spaces and listing a new one
+export const myHostSpaces = (opts) => api('/host/spaces', opts); // -> { spaces }
+export const createHostSpace = (space, opts) =>
+  api('/host/spaces', { ...opts, method: 'POST', body: space });
 
-// Admin: bookings, gate, summary
+// Managing a space. The admin pages are shared by the admin (/api/admin, any space) and hosts
+// (/api/host?space_id=, their own spaces only); ManageScope in App.jsx sets which one is active.
+let scope = { base: '/admin', spaceId: null };
+export function setManageScope(next) {
+  scope = next;
+}
+const m = (path, params = {}) => `${scope.base}${path}${qs({ ...params, space_id: scope.spaceId })}`;
+
+export const manageFacility = (opts) => api(m('/facility'), opts);
+export const updateFacility = (fields, opts) =>
+  api(m('/facility'), { ...opts, method: 'PATCH', body: fields });
+
+export const adminSlots = (opts) => api(m('/slots'), opts); // -> { slots }
+export const createSlot = (slot, opts) => api(m('/slots'), { ...opts, method: 'POST', body: slot });
+export const updateSlot = (id, fields, opts) =>
+  api(m(`/slots/${enc(id)}`), { ...opts, method: 'PATCH', body: fields });
+export const deleteSlot = (id, opts) => api(m(`/slots/${enc(id)}`), { ...opts, method: 'DELETE' }); // -> null
+
 export const adminBookings = (date, status, opts) =>
-  api(`/admin/bookings${qs({ date, status })}`, opts); // -> { date, bookings }
-export const checkIn = (code, opts) =>
-  api(`/admin/bookings/${enc(code)}/check-in`, { ...opts, method: 'POST' });
-export const checkOut = (code, opts) =>
-  api(`/admin/bookings/${enc(code)}/check-out`, { ...opts, method: 'POST' });
-export const summary = (from, to, opts) => api(`/admin/summary${qs({ from, to })}`, opts);
+  api(m('/bookings', { date, status }), opts); // -> { date, bookings }
+export const manageBooking = (code, opts) => api(m(`/bookings/${enc(code)}`), opts);
+export const checkIn = (code, opts) => api(m(`/bookings/${enc(code)}/check-in`), { ...opts, method: 'POST' });
+export const checkOut = (code, opts) => api(m(`/bookings/${enc(code)}/check-out`), { ...opts, method: 'POST' });
+export const manageCancel = (code, opts) => api(m(`/bookings/${enc(code)}/cancel`), { ...opts, method: 'POST' });
+export const summary = (from, to, opts) => api(m('/summary', { from, to }), opts);

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getFacility, updateFacility } from '../../api/parkit.js';
+import { manageFacility, updateFacility } from '../../api/parkit.js';
+import { useManage } from '../../manage/ManageScope.jsx';
 import Alert from '../../components/Alert.jsx';
 import Field from '../../components/Field.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
@@ -7,12 +8,14 @@ import Spinner from '../../components/Spinner.jsx';
 import { minutesToTime, timeToMinutes } from '../../lib/time.js';
 
 const TIMES = Array.from({ length: 48 }, (_, i) => minutesToTime(i * 30));
-const FIELDS = ['name', 'address', 'opens_at', 'closes_at', 'max_advance_days'];
+const FIELDS = ['name', 'address', 'locality', 'city', 'opens_at', 'closes_at', 'max_advance_days'];
 
 function toForm(f) {
   return {
     name: f.name ?? '',
     address: f.address ?? '',
+    locality: f.locality ?? '',
+    city: f.city ?? '',
     opens_at: f.opens_at,
     closes_at: f.closes_at,
     max_advance_days: String(f.max_advance_days),
@@ -36,6 +39,7 @@ function validate(form) {
 const timeOptions = TIMES.map((t) => <option key={t} value={t}>{t}</option>);
 
 export default function Settings() {
+  const { isHost } = useManage();
   const [saved, setSaved] = useState(null);
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -52,7 +56,7 @@ export default function Settings() {
     const ctrl = new AbortController();
     setLoading(true);
     setLoadError('');
-    getFacility({ signal: ctrl.signal })
+    manageFacility({ signal: ctrl.signal })
       .then((f) => { setSaved(f); setForm(toForm(f)); setLoading(false); })
       .catch((e) => {
         if (e.name === 'AbortError') return;
@@ -120,7 +124,7 @@ export default function Settings() {
 
   return (
     <div className="stack">
-      <PageHeader title="Settings" subtitle="Facility details and booking hours." />
+      <PageHeader title="Settings" subtitle={isHost ? 'Your space: where it is and the hours it is free.' : 'Facility details and booking hours.'} />
 
       {loading ? <Spinner label="Loading settings" /> : null}
       {loadError ? (
@@ -132,10 +136,18 @@ export default function Settings() {
 
       {form ? (
         <form className="card stack form-narrow" onSubmit={submit} noValidate>
-          <Field label="Facility name" required value={form.name} maxLength={100} autoComplete="off"
+          <Field label={isHost ? "Space name" : "Facility name"} required value={form.name} maxLength={100} autoComplete="off"
             error={err('name')} onChange={(e) => set('name', e.target.value)} />
-          <Field label="Address" value={form.address} autoComplete="off"
+          <Field label="House address" value={form.address} autoComplete="off"
+            hint="Shown only to drivers who book, never in search."
             error={err('address')} onChange={(e) => set('address', e.target.value)} />
+          <div className="field-row">
+            <Field label="Locality" value={form.locality} autoComplete="off" maxLength={100}
+              hint="Drivers search by this, e.g. Lajpat Nagar."
+              error={err('locality')} onChange={(e) => set('locality', e.target.value)} />
+            <Field label="City" value={form.city} autoComplete="off" maxLength={100}
+              error={err('city')} onChange={(e) => set('city', e.target.value)} />
+          </div>
 
           <div className="field-row">
             <Field label="Opens at (IST)" as="select" value={form.opens_at} error={err('opens_at')}
