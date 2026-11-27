@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { createBooking, getAvailability, getFacility } from '../api/parkit.js';
 import { fileUrl } from '../api/client.js';
 import { useConfig } from '../api/useConfig.js';
+import Icon, { BrandMark } from '../components/Icon.jsx';
 import Alert from '../components/Alert.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Field from '../components/Field.jsx';
@@ -241,21 +242,33 @@ export default function Book() {
       <div className="container container-narrow stack">
         <PageHeader title="Booking confirmed" headingRef={doneHeading} />
         <Alert tone="success">Your slot is reserved and the simulated payment of {formatINR(booking.amount)} is complete.</Alert>
-        <div className="card stack stack-center">
-          <p className="muted">Your booking code</p>
-          <span className="code">{booking.booking_code}</span>
-          {booking.qr_url ? (
-            <img className="qr" src={fileUrl(booking.qr_url)} alt={`QR code for booking ${booking.booking_code}`} />
-          ) : null}
-          <p>
-            Slot <strong>{booking.slot.code}</strong> &middot; {booking.vehicle_number}
-            <br />
-            {formatTimeRange(booking.starts_at, booking.ends_at)}
-          </p>
-          <p className="muted">Show the code or QR at the gate.</p>
-          {emailsOn ? (
-            <p className="muted">A confirmation email is on its way (if you confirmed the AWS subscription email).</p>
-          ) : null}
+        <div className="ticket">
+          <div className="ticket-head">
+            <span className="brand"><BrandMark size={26} />ParkIt</span>
+            <span className="badge">Confirmed</span>
+          </div>
+          <div className="ticket-body stack stack-center">
+            <p className="muted m-0">Your booking code</p>
+            <span className="code">{booking.booking_code}</span>
+            {booking.qr_url ? (
+              <img className="qr" src={fileUrl(booking.qr_url)} alt={`QR code for booking ${booking.booking_code}`} />
+            ) : null}
+          </div>
+          <div className="ticket-tear" aria-hidden="true" />
+          <div className="ticket-body stack stack-center">
+            <p className="m-0">
+              <Icon name={booking.slot.vehicle_type === 'bike' ? 'bike' : 'car'} size={18} /> Slot{' '}
+              <strong>{booking.slot.code}</strong> &middot; {booking.vehicle_number}
+              <br />
+              {formatTimeRange(booking.starts_at, booking.ends_at)}
+            </p>
+            <p className="muted m-0">Show the code or QR at the gate.</p>
+            {emailsOn ? (
+              <p className="muted m-0">
+                <Icon name="mail" size={16} /> A confirmation email is on its way (if you confirmed the AWS subscription email).
+              </p>
+            ) : null}
+          </div>
         </div>
         <div className="row">
           <Link className="btn btn-primary" to={`/bookings/${encodeURIComponent(booking.booking_code)}`}>View booking</Link>

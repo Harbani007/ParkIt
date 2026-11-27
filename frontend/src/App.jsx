@@ -14,6 +14,7 @@ import Slots from './pages/admin/Slots.jsx';
 import Settings from './pages/admin/Settings.jsx';
 import Gate from './pages/admin/Gate.jsx';
 import NotFound from './pages/NotFound.jsx';
+import Icon, { BrandMark } from './components/Icon.jsx';
 
 const TITLES = [
   ['/login', 'Log in'],
@@ -70,7 +71,7 @@ function NavBar() {
 
   return (
     <header className={`nav no-print${open ? ' is-open' : ''}`}>
-      <NavLink to="/" className="brand">ParkIt</NavLink>
+      <NavLink to="/" className="brand"><BrandMark />ParkIt</NavLink>
       <button
         type="button"
         className="nav-toggle"
@@ -136,7 +137,10 @@ export default function App() {
         </Routes>
       </main>
       <footer className="no-print">
-        <ApiStatus />
+        <div className="footer-inner">
+          <span className="footer-aws"><Icon name="cloud" size={18} />Runs on AWS: EC2, RDS, S3, SNS</span>
+          <ApiStatus />
+        </div>
       </footer>
     </>
   );
