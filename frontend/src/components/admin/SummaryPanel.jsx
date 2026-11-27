@@ -6,6 +6,7 @@ import Alert from '../Alert.jsx';
 import EmptyState from '../EmptyState.jsx';
 import Field from '../Field.jsx';
 import Spinner from '../Spinner.jsx';
+import Icon from '../Icon.jsx';
 
 function presetRange(preset) {
   const today = todayIST();
@@ -21,11 +22,11 @@ const PRESETS = [
 ];
 
 const COUNT_CARDS = [
-  ['upcoming', 'Upcoming'],
-  ['checked_in', 'Checked in'],
-  ['completed', 'Completed'],
-  ['missed', 'Missed'],
-  ['cancelled', 'Cancelled'],
+  ['upcoming', 'Upcoming', 'calendar'],
+  ['checked_in', 'Checked in', 'gate'],
+  ['completed', 'Completed', 'check'],
+  ['missed', 'Missed', 'clock'],
+  ['cancelled', 'Cancelled', 'cross'],
 ];
 
 function pct(n) {
@@ -120,24 +121,39 @@ export default function SummaryPanel({ refreshKey = 0 }) {
         <div className={`stack${loading ? ' is-loading' : ''}`}>
           <div className="grid">
             <div className="stat-card">
-              <p className="stat-label">Revenue</p>
+              <div className="stat-head">
+                <p className="stat-label">Revenue</p>
+                <span className="icon-bubble is-accent"><Icon name="rupee" size={20} /></span>
+              </div>
               <p className="stat-value">{formatINR(data.revenue)}</p>
               <p className="stat-note">Excludes refunds. Payments are simulated.</p>
             </div>
             <div className="stat-card">
-              <p className="stat-label">Occupancy</p>
-              <p className="stat-value">{pct(data.occupancy_pct)}</p>
-              <span className="bar" role="img" aria-label={`Occupancy ${pct(data.occupancy_pct)}`}>
-                <span style={{ '--bar-value': clampPct(data.occupancy_pct) }} />
-              </span>
-              <p className="stat-note">Booked hours of all slots over opening hours.</p>
+              <div className="occupancy-row">
+                <span
+                  className="ring"
+                  role="img"
+                  aria-label={`Occupancy ${pct(data.occupancy_pct)}`}
+                  style={{ '--p': clampPct(data.occupancy_pct) }}
+                >
+                  <Icon name="car" size={26} />
+                </span>
+                <div>
+                  <p className="stat-label">Occupancy</p>
+                  <p className="stat-value">{pct(data.occupancy_pct)}</p>
+                  <p className="stat-note m-0">Booked hours of all slots over opening hours.</p>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-compact">
-            {COUNT_CARDS.map(([key, label]) => (
-              <div className="stat-card" key={key}>
-                <p className="stat-label">{label}</p>
+            {COUNT_CARDS.map(([key, label, icon]) => (
+              <div className={`stat-card tone-${key}`} key={key}>
+                <div className="stat-head">
+                  <p className="stat-label">{label}</p>
+                  <Icon name={icon} size={18} className="muted" />
+                </div>
                 <p className="stat-value">{data.counts?.[key] ?? 0}</p>
               </div>
             ))}

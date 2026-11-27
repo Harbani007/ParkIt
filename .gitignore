@@ -10,3 +10,6 @@ uploads/
 .vscode/
 .idea/
 .claude/settings.local.json
+
+# Report drafts and screenshots (contain account ids and email addresses; not for the public repo)
+report/

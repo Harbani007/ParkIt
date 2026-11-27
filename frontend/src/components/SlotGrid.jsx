@@ -1,4 +1,5 @@
 import { formatINR } from '../lib/money.js';
+import Icon from './Icon.jsx';
 
 export const ANY_SLOT = 'any';
 
@@ -33,7 +34,7 @@ export default function SlotGrid({ slots, value, onChange, legend = 'Choose a sl
       <legend className="visually-hidden">{legend}</legend>
       <div className="slot-grid">
         <label
-          className={`slot-tile${value === ANY_SLOT ? ' is-selected' : ''}${anyDisabled ? ' is-unavailable' : ''}`}
+          className={`slot-tile is-any${value === ANY_SLOT ? ' is-selected' : ''}${anyDisabled ? ' is-unavailable' : ''}`}
         >
           <input
             type="radio"
@@ -43,6 +44,7 @@ export default function SlotGrid({ slots, value, onChange, legend = 'Choose a sl
             disabled={anyDisabled}
             onChange={() => onChange(ANY_SLOT)}
           />
+          <Icon name="check" size={26} className="slot-car" />
           <span className="slot-code">Any free slot</span>
           <span className="slot-state">{any ? 'Least-used slot' : 'None free'}</span>
           {any ? <span className="slot-price">{any.text}</span> : null}
@@ -63,6 +65,7 @@ export default function SlotGrid({ slots, value, onChange, legend = 'Choose a sl
                 disabled={off}
                 onChange={() => onChange(s.id)}
               />
+              <Icon name={s.vehicle_type === 'bike' ? 'bike' : 'car'} size={30} className="slot-car" />
               <span className="slot-code">{s.code}</span>
               <span className="slot-state">{s.available ? 'Free' : 'Booked for this time'}</span>
               <span className="slot-price">{formatINR(s.amount)}</span>
