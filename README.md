@@ -117,4 +117,4 @@ Progress is tracked in [docs/PHASES.md](docs/PHASES.md).
 
 | Name | Roll number |
 |---|---|
-| Harbani Kaur | _add roll number_ |
+| Harbani Kaur | 1024030848 |
